@@ -1,0 +1,23 @@
+# C++ build artifacts
+engine/build/
+engine/cmake-build-debug/
+engine/cmake-build-release/
+*.o
+*.out
+
+# CLion
+.idea/
+
+# Python
+planner/__pycache__/
+planner/.venv/
+*.pyc
+*.pyo
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# macOS
+.DS_Store
