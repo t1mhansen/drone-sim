@@ -2,17 +2,19 @@
 
 #include "DroneState.h"
 #include "PhysicsEngine.h"
+#include "Logger.h"
 
 int main() {
     std::cout << "Drone sim engine starting..." << std::endl;
 
     DroneState drone;
     PhysicsEngine physics;
+    Logger logger("flight_log.json",10);
 
     drone.z = 100.0;
 
     for (int i = 0; i < 4; i++) {
-        physics.getRotor(i).throttle = 0.375;
+        physics.getRotor(i).throttle = 0.5;
     }
 
     std::cout << "Start position: ("
@@ -22,6 +24,7 @@ int main() {
 
     for (int i = 0; i < 1000; i++) {
         physics.update(drone);
+        logger.log(drone);
     }
 
     std::cout << "End position: ("

@@ -4,4 +4,5 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(drone_sim_engine src/main.cpp
         src/PhysicsEngine.cpp
         src/Rotor.cpp
-        src/RK4Integrator.cpp)
+        src/RK4Integrator.cpp
+        src/Logger.cpp)
