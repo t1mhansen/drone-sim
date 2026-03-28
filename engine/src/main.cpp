@@ -3,6 +3,8 @@
 #include "DroneState.h"
 #include "PhysicsEngine.h"
 #include "Logger.h"
+#include "SharedMemory.h"
+
 
 int main() {
     std::cout << "Drone sim engine starting..." << std::endl;
@@ -10,6 +12,7 @@ int main() {
     DroneState drone;
     PhysicsEngine physics;
     Logger logger("flight_log.json",10);
+    SharedMemory sharedMemory("/drone_state");
 
     drone.z = 100.0;
 
@@ -25,6 +28,7 @@ int main() {
     for (int i = 0; i < 1000; i++) {
         physics.update(drone);
         logger.log(drone);
+        sharedMemory.write(drone);
     }
 
     std::cout << "End position: ("
