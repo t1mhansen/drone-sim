@@ -1,12 +1,19 @@
 #include <iostream>
-
+#include <csignal>
 #include "DroneState.h"
 #include "PhysicsEngine.h"
 #include "Logger.h"
 #include "SharedMemory.h"
 
+static bool running = true;
+
+void signalHandler(int signum) {
+    running = false;
+}
 
 int main() {
+    std::signal(SIGINT, signalHandler);
+
     std::cout << "Drone sim engine starting..." << std::endl;
 
     DroneState drone;
@@ -25,16 +32,13 @@ int main() {
               << drone.y << ", "
               << drone.z << ")" << std::endl;
 
-    while (true) {
+    while (running) {
         physics.update(drone);
         logger.log(drone);
         sharedMemory.write(drone);
     }
 
-    std::cout << "End position: ("
-             << drone.x << ", "
-             << drone.y << ", "
-             << drone.z << ")" << std::endl;
+    std::cout << "Engine shutting down..." << std::endl;
 
     return 0;
 }
