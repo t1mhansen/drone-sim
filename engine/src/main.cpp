@@ -17,7 +17,7 @@ int main() {
     drone.z = 100.0;
 
     for (int i = 0; i < 4; i++) {
-        physics.getRotor(i).throttle = 0.5;
+        physics.getRotor(i).throttle = 0.375;
     }
 
     std::cout << "Start position: ("
@@ -25,7 +25,7 @@ int main() {
               << drone.y << ", "
               << drone.z << ")" << std::endl;
 
-    for (int i = 0; i < 1000; i++) {
+    while (true) {
         physics.update(drone);
         logger.log(drone);
         sharedMemory.write(drone);
