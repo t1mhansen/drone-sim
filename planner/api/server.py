@@ -7,7 +7,7 @@ from planner.astar import Astar
 from planner.rrt_star import Rrtstar
 from shared_memory import SharedMemoryReader
 from database.db import init_db, SessionLocal, MissionRecord, FlightLog
-
+from command_channel import CommandChannelWriter
 
 # create FastAPI app
 app = FastAPI(title="Drone Sim Planner API")
@@ -31,6 +31,8 @@ class MissionRequest(BaseModel):
 astar = Astar()
 rrtstar = Rrtstar()
 
+# command channel - writes commands to C++ engine
+commands = CommandChannelWriter("/drone_commands")
 # initialize database on startup
 init_db()
 
@@ -141,6 +143,23 @@ async def get_missions():
     finally:
         db.close()
 
+
+@app.post("/fault/kill_rotor/{rotor_index}")
+async def kill_rotor(rotor_index: int):
+    """Kill a specific rotor to simulate motor failure."""
+    if rotor_index < 0 or rotor_index > 3:
+        return {"error": "rotor_index must be 0-3"}
+    cmd = CommandChannelWriter("/drone_commands")
+    cmd.set_throttle(rotor_index, 0.0)
+    return {"status": "rotor killed", "rotor": rotor_index}
+
+
+@app.post("/fault/reset")
+async def reset_rotors():
+    """Restore all rotors to hover throttle."""
+    cmd = CommandChannelWriter("/drone_commands")
+    cmd.reset()
+    return {"status": "rotors reset to hover"}
 
 @app.websocket("/ws/telemetry")
 async def telemetry(websocket: WebSocket):
