@@ -53,7 +53,8 @@ int main() {
             for (int i = 0; i < 4; i++) {
                 physics.getRotor(i).throttle = 0.375;
             }
-            // reset velocity so drone stops falling immediately
+            // reset drone position and velocity
+            drone.z = 100.0;
             drone.vz = 0.0;
             drone.vx = 0.0;
             drone.vy = 0.0;

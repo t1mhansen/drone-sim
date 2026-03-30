@@ -3,6 +3,7 @@ import { useTelemetry } from './hooks/useTelemetry';
 import TelemetryHUD from './components/TelemetryHUD';
 import Scene3D from './components/Scene3D';
 import MissionPlanner from './components/MissionPlanner';
+import FaultInjection from './components/FaultInjection';
 
 export default function App() {
     const { droneState, connected } = useTelemetry('ws://localhost:8000/ws/telemetry');
@@ -28,6 +29,11 @@ export default function App() {
             {/* mission planner */}
             <div style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 999 }}>
                 <MissionPlanner onMissionPlanned={setPlannedPath} />
+            </div>
+
+            {/* fault injection */}
+            <div style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 999 }}>
+                <FaultInjection />
             </div>
 
         </div>

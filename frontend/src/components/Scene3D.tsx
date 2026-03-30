@@ -13,14 +13,14 @@ function Drone({ state }: { state: DroneState }) {
         <group position={[state.x, state.z, state.y]}>
             {/* drone body */}
             <mesh>
-                <boxGeometry args={[1, 0.2, 1]} />
+                <boxGeometry args={[3, 0.5, 3]} />
                 <meshStandardMaterial color="#00ff88" />
             </mesh>
 
             {/* 4 rotors */}
-            {[[-0.6, 0.1, -0.6], [0.6, 0.1, -0.6], [-0.6, 0.1, 0.6], [0.6, 0.1, 0.6]].map((pos, i) => (
+            {[[-1.8, 0.3, -1.8], [1.8, 0.3, -1.8], [-1.8, 0.3, 1.8], [1.8, 0.3, 1.8]].map((pos, i) => (
                 <mesh key={i} position={pos as [number, number, number]}>
-                    <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+                    <cylinderGeometry args={[0.8, 0.8, 0.1, 16]} />
                     <meshStandardMaterial color="#888888" />
                 </mesh>
             ))}
