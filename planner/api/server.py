@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from planner.astar import Astar
 from planner.rrt_star import Rrtstar
 from shared_memory import SharedMemoryReader
+from database.db import init_db, SessionLocal, MissionRecord, FlightLog
+
 
 # create FastAPI app
 app = FastAPI(title="Drone Sim Planner API")
@@ -29,6 +31,8 @@ class MissionRequest(BaseModel):
 astar = Astar()
 rrtstar = Rrtstar()
 
+# initialize database on startup
+init_db()
 
 @app.post("/plan/astar")
 async def plan_astar(mission: MissionRequest):
@@ -86,6 +90,56 @@ async def benchmark(mission: MissionRequest):
         # whoever finished faster wins
         "winner": "astar" if astar_time < rrt_time else "rrtstar"
     }
+
+
+@app.post("/mission/save")
+async def save_mission(mission: MissionRequest):
+    """Run A* and save the mission and result to SQLite."""
+    start_time = time.time()
+    path = astar.find_path(mission.start, mission.goal, mission.obstacles)
+    compute_time = time.time() - start_time
+
+    # save to database
+    db = SessionLocal()
+    try:
+        record = MissionRecord(
+            algorithm='astar',
+            start_x=mission.start[0],
+            start_y=mission.start[1],
+            start_z=mission.start[2],
+            goal_x=mission.goal[0],
+            goal_y=mission.goal[1],
+            goal_z=mission.goal[2],
+            path_length=len(path),
+            compute_time_ms=round(compute_time * 1000, 3)
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return {
+            "mission_id": record.id,
+            "path": path,
+            "path_length": len(path),
+            "compute_time_ms": record.compute_time_ms
+        }
+    finally:
+        db.close()
+
+
+@app.get("/missions")
+async def get_missions():
+    """Get all saved missions from SQLite."""
+    db = SessionLocal()
+    try:
+        missions = db.query(MissionRecord).all()
+        return [{
+            "id": m.id,
+            "algorithm": m.algorithm,
+            "path_length": m.path_length,
+            "compute_time_ms": m.compute_time_ms
+        } for m in missions]
+    finally:
+        db.close()
 
 
 @app.websocket("/ws/telemetry")

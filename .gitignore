@@ -21,3 +21,6 @@ frontend/.env
 
 # macOS
 .DS_Store
+
+# DB
+planner/drone_sim.db
