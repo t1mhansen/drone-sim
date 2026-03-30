@@ -1,13 +1,14 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls, Grid, PerspectiveCamera, Line } from '@react-three/drei';
 import type { DroneState } from '../types/drone';
 
 interface Props {
     state: DroneState;
+    plannedPath: [number, number, number][];
 }
 
 // the drone mesh - a simple box body with 4 cylinder rotors
-function Drone({ state }: Props) {
+function Drone({ state }: { state: DroneState }) {
     return (
         <group position={[state.x, state.z, state.y]}>
             {/* drone body */}
@@ -27,7 +28,23 @@ function Drone({ state }: Props) {
     );
 }
 
-export default function Scene3D({ state }: Props) {
+// renders the planned path as a yellow line through 3D space
+function PlannedPath({ path }: { path: [number, number, number][] }) {
+    if (path.length < 2) return null;
+
+    // remap coordinates to Three.js space (y is up in Three.js)
+    const points = path.map(([x, y, z]) => [x, z, y] as [number, number, number]);
+
+    return (
+        <Line
+            points={points}
+            color="#ffff00"
+            lineWidth={2}
+        />
+    );
+}
+
+export default function Scene3D({ state, plannedPath }: Props) {
     return (
         <Canvas style={{ position: 'absolute', top: 0, left: 0 }} className="w-full h-full">
             <PerspectiveCamera makeDefault position={[20, 120, 20]} />
@@ -50,6 +67,9 @@ export default function Scene3D({ state }: Props) {
                 <sphereGeometry args={[0.5]} />
                 <meshStandardMaterial color="red" />
             </mesh>
+
+            {/* planned path line */}
+            <PlannedPath path={plannedPath} />
 
             {/* the drone */}
             <Drone state={state} />

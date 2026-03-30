@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useTelemetry } from './hooks/useTelemetry';
 import TelemetryHUD from './components/TelemetryHUD';
 import Scene3D from './components/Scene3D';
+import MissionPlanner from './components/MissionPlanner';
 
 export default function App() {
     const { droneState, connected } = useTelemetry('ws://localhost:8000/ws/telemetry');
+    const [plannedPath, setPlannedPath] = useState<[number, number, number][]>([]);
 
     return (
         <div style={{ width: '100vw', height: '100vh', background: '#111', position: 'relative' }}>
@@ -15,11 +18,16 @@ export default function App() {
             </div>
 
             {/* 3D scene */}
-            <Scene3D state={droneState} />
+            <Scene3D state={droneState} plannedPath={plannedPath} />
 
             {/* telemetry HUD */}
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 999 }}>
                 <TelemetryHUD state={droneState} connected={connected} />
+            </div>
+
+            {/* mission planner */}
+            <div style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 999 }}>
+                <MissionPlanner onMissionPlanned={setPlannedPath} />
             </div>
 
         </div>
