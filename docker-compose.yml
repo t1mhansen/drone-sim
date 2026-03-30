@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+
+  engine:
+    build: ./engine
+    # share host IPC namespace so C++ and Python can use POSIX shared memory
+    ipc: host
+    restart: unless-stopped
+
+  planner:
+    build: ./planner
+    # share host IPC namespace - same reason
+    ipc: host
+    ports:
+      - "8000:8000"
+    # wait for engine to start first
+    depends_on:
+      - engine
+    restart: unless-stopped
