@@ -1,25 +1,26 @@
 import { useTelemetry } from './hooks/useTelemetry';
 import TelemetryHUD from './components/TelemetryHUD';
+import Scene3D from './components/Scene3D';
 
 export default function App() {
     const { droneState, connected } = useTelemetry('ws://localhost:8000/ws/telemetry');
 
     return (
-        <div className="w-screen h-screen bg-gray-900 relative">
+        <div style={{ width: '100vw', height: '100vh', background: '#111', position: 'relative' }}>
 
             {/* title */}
-            <div className="absolute top-4 left-4 text-white font-mono">
-                <div className="text-xl font-bold">DRONE-SIM</div>
-                <div className="text-gray-400 text-sm">Autonomous Flight Simulator</div>
+            <div style={{ position: 'absolute', top: '16px', left: '16px', color: 'white', fontFamily: 'monospace', zIndex: 999 }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>DRONE-SIM</div>
+                <div style={{ color: '#888', fontSize: '14px' }}>Autonomous Flight Simulator</div>
             </div>
 
-            {/* placeholder for 3D scene */}
-            <div className="w-full h-full flex items-center justify-center text-gray-600 font-mono">
-                3D Scene Coming Soon
-            </div>
+            {/* 3D scene */}
+            <Scene3D state={droneState} />
 
-            {/* telemetry HUD overlay */}
-            <TelemetryHUD state={droneState} connected={connected} />
+            {/* telemetry HUD */}
+            <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 999 }}>
+                <TelemetryHUD state={droneState} connected={connected} />
+            </div>
 
         </div>
     );

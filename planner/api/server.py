@@ -90,19 +90,13 @@ async def benchmark(mission: MissionRequest):
 
 @app.websocket("/ws/telemetry")
 async def telemetry(websocket: WebSocket):
-    """Stream live drone state to the React frontend at 30Hz via WebSocket.
-    Reads from C++ shared memory on every frame."""
+    """Stream live drone state to the React frontend at 30Hz via WebSocket."""
     await websocket.accept()
+    reader = None
     try:
-        # initialize shared memory reader when a client connects
-        # C++ engine must be running before connecting
         reader = SharedMemoryReader("/drone_state")
-
         while True:
-            # read latest drone state from C++ shared memory
             state = reader.read()
-
-            # send all 13 state values as JSON to the frontend
             await websocket.send_json({
                 "x": state.x,
                 "y": state.y,
@@ -118,11 +112,10 @@ async def telemetry(websocket: WebSocket):
                 "ay": state.ay,
                 "az": state.az,
             })
-
-            # 30Hz = one frame every ~33 milliseconds
-            # downsampled from C++ engine's 1000Hz to avoid saturating the WebSocket
             await asyncio.sleep(1/30)
-
     except Exception:
-        # client disconnected or C++ engine not running
-        await websocket.close()
+        # client disconnected - just pass, don't try to close again
+        pass
+    finally:
+        if reader:
+            reader.close()
