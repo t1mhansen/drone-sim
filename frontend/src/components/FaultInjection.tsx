@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '../config';
 
-export default function FaultInjection() {
+interface Props {
+    onRotorKilled?: (index: number) => void;
+    onReset?: () => void;
+}
+
+export default function FaultInjection({ onRotorKilled, onReset }: Props) {
     const [status, setStatus] = useState<string>('');
 
     const killRotor = async (index: number) => {
@@ -10,6 +15,7 @@ export default function FaultInjection() {
                 method: 'POST'
             });
             setStatus(`Rotor ${index} killed`);
+            onRotorKilled?.(index);
         } catch (e) {
             setStatus('Error connecting to server');
         }
@@ -21,6 +27,7 @@ export default function FaultInjection() {
                 method: 'POST'
             });
             setStatus('Rotors reset to hover');
+            onReset?.();
         } catch (e) {
             setStatus('Error connecting to server');
         }
@@ -40,7 +47,6 @@ export default function FaultInjection() {
                 FAULT INJECTION
             </div>
 
-            {/* kill individual rotors */}
             <div style={{ marginBottom: '12px' }}>
                 <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>KILL ROTOR</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
@@ -65,7 +71,6 @@ export default function FaultInjection() {
                 </div>
             </div>
 
-            {/* reset button */}
             <button
                 onClick={reset}
                 style={{
@@ -84,7 +89,6 @@ export default function FaultInjection() {
                 RESET ALL ROTORS
             </button>
 
-            {/* status */}
             {status && (
                 <div style={{ color: '#aaa', fontSize: '11px', marginTop: '4px' }}>
                     {status}

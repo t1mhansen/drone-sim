@@ -1,12 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useFlightControls } from './hooks/useFlightControls';
+import { useAudioEngine } from './hooks/useAudioEngine';
 import { WS_TELEMETRY_URL } from './config';
 import TelemetryHUD from './components/TelemetryHUD';
 import Scene3D from './components/Scene3D';
 import FlightControls from './components/FlightControls';
 import FaultInjection from './components/FaultInjection';
 import DroneSelector from './components/DroneSelector';
+import Minimap from './components/Minimap';
 import type { DroneProfile } from './types/drone';
 
 type CameraMode = 'chase' | 'fpv' | 'orbit';
@@ -16,13 +18,38 @@ export default function App() {
     const { droneState, status, sendInput } = useTelemetry(WS_TELEMETRY_URL);
     const [droneProfile, setDroneProfile] = useState<DroneProfile | null>(null);
     const [cameraMode, setCameraMode] = useState<CameraMode>('chase');
+    const [killedRotors, setKilledRotors] = useState<Set<number>>(new Set());
+    const { updateEngineSound, playCollisionSound } = useAudioEngine();
 
     const isFixedWing = droneProfile?.type === 'fixed_wing';
     const { keysRef, throttleRef } = useFlightControls({ sendInput, isFixedWing });
 
+    // Update engine sound with throttle at 15Hz
+    const throttleForSound = useRef(0.5);
+    useEffect(() => {
+        const interval = setInterval(() => {
+            throttleForSound.current = throttleRef.current;
+            updateEngineSound(throttleForSound.current);
+        }, 1000 / 15);
+        return () => clearInterval(interval);
+    }, [throttleRef, updateEngineSound]);
+
     const handleDroneChanged = useCallback((_id: string, profile: DroneProfile) => {
         setDroneProfile(profile);
+        setKilledRotors(new Set());
     }, []);
+
+    const handleRotorKilled = useCallback((index: number) => {
+        setKilledRotors(prev => new Set(prev).add(index));
+    }, []);
+
+    const handleReset = useCallback(() => {
+        setKilledRotors(new Set());
+    }, []);
+
+    const handleCollision = useCallback(() => {
+        playCollisionSound();
+    }, [playCollisionSound]);
 
     // C key to cycle camera
     useEffect(() => {
@@ -48,7 +75,13 @@ export default function App() {
             </div>
 
             {/* 3D scene */}
-            <Scene3D state={droneState} droneProfile={droneProfile} cameraMode={cameraMode} />
+            <Scene3D
+                state={droneState}
+                droneProfile={droneProfile}
+                cameraMode={cameraMode}
+                killedRotors={killedRotors}
+                onCollision={handleCollision}
+            />
 
             {/* telemetry HUD */}
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 999 }}>
@@ -58,6 +91,11 @@ export default function App() {
             {/* drone selector */}
             <div style={{ position: 'absolute', top: '80px', left: '16px', zIndex: 999 }}>
                 <DroneSelector onDroneChanged={handleDroneChanged} />
+            </div>
+
+            {/* minimap */}
+            <div style={{ position: 'absolute', top: '16px', right: '252px', zIndex: 999 }}>
+                <Minimap state={droneState} />
             </div>
 
             {/* flight controls HUD */}
@@ -75,7 +113,7 @@ export default function App() {
 
             {/* fault injection */}
             <div style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 999 }}>
-                <FaultInjection />
+                <FaultInjection onRotorKilled={handleRotorKilled} onReset={handleReset} />
             </div>
 
         </div>
