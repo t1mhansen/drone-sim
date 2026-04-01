@@ -15,11 +15,26 @@ ENGINE_PORT = int(os.getenv("ENGINE_PORT", "9001"))
 engine_client = EngineClient(ENGINE_HOST, ENGINE_PORT)
 
 
+def _select_default_drone():
+    """Send the default drone profile config to the engine on startup."""
+    profile = PROFILES[DEFAULT_DRONE]
+    engine_client.send_config(
+        drone_type=profile["type"],
+        num_rotors=profile["num_rotors"],
+        mass=profile["mass"],
+        max_thrust_per_rotor=profile["max_thrust_per_rotor"],
+        drag_coeff=profile["drag_coeff"],
+        lift_coeff=profile["lift_coeff"],
+    )
+    print(f"Auto-selected default drone: {profile['name']}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Connect to engine on startup, disconnect on shutdown."""
     engine_client.connect()
     engine_client.start()
+    _select_default_drone()
     yield
     engine_client.close()
 

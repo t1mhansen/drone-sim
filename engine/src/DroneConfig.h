@@ -19,6 +19,6 @@ struct DroneConfig {
           numRotors(4),
           mass(1.5),
           maxThrustPerRotor(9.81),
-          dragCoeff(0.0),
+          dragCoeff(0.08),
           liftCoeff(0.0) {}
 };

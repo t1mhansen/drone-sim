@@ -79,22 +79,36 @@ export default function FlightControls({ keysRef, throttleRef, isFixedWing }: Pr
                 )}
             </div>
 
-            {/* Throttle bar */}
+            {/* Throttle bar with hover marker */}
             <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>
                 THROTTLE {(throttle * 100).toFixed(0)}%
+                {Math.abs(throttle - 0.5) < 0.02 && <span style={{ color: '#00ff88', marginLeft: '6px' }}>HOVER</span>}
+                {throttle > 0.52 && <span style={{ color: '#ffaa00', marginLeft: '6px' }}>CLIMB</span>}
+                {throttle < 0.48 && <span style={{ color: '#4488ff', marginLeft: '6px' }}>DESCEND</span>}
             </div>
             <div style={{
-                width: '100%', height: '12px',
+                width: '100%', height: '14px',
                 background: '#222', borderRadius: '3px',
                 border: '1px solid #444',
                 overflow: 'hidden',
                 marginBottom: '6px',
+                position: 'relative',
             }}>
                 <div style={{
                     width: `${throttle * 100}%`,
                     height: '100%',
-                    background: throttle > 0.8 ? '#ff4444' : '#00ff88',
+                    background: throttle > 0.8 ? '#ff4444' : throttle > 0.52 ? '#ffaa00' : throttle < 0.48 ? '#4488ff' : '#00ff88',
                     transition: 'width 0.05s',
+                }} />
+                {/* Hover marker at 50% */}
+                <div style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 0,
+                    bottom: 0,
+                    width: '2px',
+                    background: '#00ff88',
+                    opacity: 0.6,
                 }} />
             </div>
             <div style={{ display: 'flex', gap: '3px' }}>

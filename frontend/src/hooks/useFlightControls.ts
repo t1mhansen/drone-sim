@@ -35,7 +35,7 @@ function approach(current: number, target: number, rate: number): number {
 
 export function useFlightControls({ sendInput, isFixedWing }: FlightControlsOptions) {
     const keysRef = useRef<KeyState>({ ...defaultKeys });
-    const throttleRef = useRef(0.0);
+    const throttleRef = useRef(0.5); // 0.5 = hover
     const smoothPitch = useRef(0.0);
     const smoothRoll = useRef(0.0);
     const smoothYaw = useRef(0.0);
