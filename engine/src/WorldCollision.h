@@ -1,5 +1,6 @@
 #pragma once
 #include "DroneState.h"
+#include "DroneConfig.h"
 #include <vector>
 #include <cmath>
 #include <cstdint>
@@ -13,7 +14,7 @@ struct AABB {
 class WorldCollision {
 public:
     WorldCollision();
-    void resolveCollisions(DroneState& state);
+    void resolveCollisions(DroneState& state, const DroneConfig& config);
 
 private:
     std::vector<AABB> buildings;

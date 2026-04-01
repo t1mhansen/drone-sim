@@ -45,11 +45,16 @@ void WorldCollision::generateBuildings() {
     }
 }
 
-void WorldCollision::resolveCollisions(DroneState& state) {
+void WorldCollision::resolveCollisions(DroneState& state, const DroneConfig& config) {
     // Ground collision
     if (state.z < 0.0) {
         state.z = 0.0;
         state.vz = 0.0;
+        // Fixed-wing hitting the ground = crash, zero all velocity
+        if (config.type == DroneType::FIXED_WING) {
+            state.vx = 0.0;
+            state.vy = 0.0;
+        }
     }
 
     // Building AABB collisions

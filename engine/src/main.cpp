@@ -181,7 +181,7 @@ int main() {
         }
 
         physics.update(drone);
-        world.resolveCollisions(drone);
+        world.resolveCollisions(drone, physics.getConfig());
         logger.log(drone);
 
         // Broadcast state at ~30Hz
