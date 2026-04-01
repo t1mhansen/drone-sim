@@ -35,16 +35,6 @@ void PhysicsEngine::update(DroneState& drone_state) {
     rk4Integrator.integrate(drone_state, [this](const DroneState& state) {
         return computeDerivative(state);
     });
-
-    // Ground collision
-    if (drone_state.z < 0.0) {
-        drone_state.z = 0.0;
-        drone_state.vz = 0.0;
-        if (config.type == DroneType::FIXED_WING) {
-            drone_state.vx = 0.0;
-            drone_state.vy = 0.0;
-        }
-    }
 }
 
 DroneState PhysicsEngine::computeDerivative(const DroneState& state) const {

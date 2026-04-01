@@ -10,6 +10,7 @@
 #include "PhysicsEngine.h"
 #include "Logger.h"
 #include "TcpServer.h"
+#include "WorldCollision.h"
 
 static bool running = true;
 
@@ -75,6 +76,7 @@ int main() {
 
     DroneState drone;
     PhysicsEngine physics;
+    WorldCollision world;
     Logger logger("flight_log.json", 10);
     TcpServer server(port);
 
@@ -179,6 +181,7 @@ int main() {
         }
 
         physics.update(drone);
+        world.resolveCollisions(drone);
         logger.log(drone);
 
         // Broadcast state at ~30Hz
