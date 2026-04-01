@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
+#include <thread>
 #include "DroneState.h"
 #include "DroneConfig.h"
 #include "PhysicsEngine.h"
@@ -73,7 +75,26 @@ int main() {
               << drone.y << ", "
               << drone.z << ")" << std::endl;
 
+    // Real-time loop: physics at 1000Hz, network I/O every iteration
+    using clock = std::chrono::steady_clock;
+    constexpr auto PHYSICS_DT = std::chrono::microseconds(1000); // 1ms = 1000Hz
+    constexpr int BROADCAST_INTERVAL = 33; // broadcast every ~33ms (~30Hz)
+    int tickCount = 0;
+    auto nextTick = clock::now();
+
     while (running) {
+        // Sleep until next physics tick
+        auto now = clock::now();
+        if (now < nextTick) {
+            std::this_thread::sleep_until(nextTick);
+        }
+        nextTick += PHYSICS_DT;
+
+        // If we fell behind by more than 50ms, reset the clock (don't try to catch up)
+        if (clock::now() - nextTick > std::chrono::milliseconds(50)) {
+            nextTick = clock::now();
+        }
+
         server.acceptClients();
 
         ParsedMessage msg = server.readMessages();
@@ -130,7 +151,13 @@ int main() {
 
         physics.update(drone);
         logger.log(drone);
-        server.broadcastState(drone);
+
+        // Broadcast state at ~30Hz, not every physics tick
+        tickCount++;
+        if (tickCount >= BROADCAST_INTERVAL) {
+            server.broadcastState(drone);
+            tickCount = 0;
+        }
     }
 
     std::cout << "Engine shutting down..." << std::endl;

@@ -22,11 +22,28 @@ const defaultKeys: KeyState = {
     q: false, e: false, space: false, shift: false,
 };
 
+// Smoothing: ramp toward target at this rate per tick (30Hz ticks)
+const RAMP_UP = 0.15;    // how fast axis reaches target (per 33ms tick)
+const RAMP_DOWN = 0.20;  // how fast axis returns to zero
+const THROTTLE_RATE = 0.015; // throttle change per tick
+
+function approach(current: number, target: number, rate: number): number {
+    if (current < target) return Math.min(current + rate, target);
+    if (current > target) return Math.max(current - rate, target);
+    return current;
+}
+
 export function useFlightControls({ sendInput, isFixedWing }: FlightControlsOptions) {
     const keysRef = useRef<KeyState>({ ...defaultKeys });
     const throttleRef = useRef(0.0);
+    const smoothPitch = useRef(0.0);
+    const smoothRoll = useRef(0.0);
+    const smoothYaw = useRef(0.0);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        // Don't capture if user is typing in an input
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
         const key = e.key.toLowerCase();
         if (key === 'w') keysRef.current.w = true;
         else if (key === 's') keysRef.current.s = true;
@@ -57,38 +74,44 @@ export function useFlightControls({ sendInput, isFixedWing }: FlightControlsOpti
         const interval = setInterval(() => {
             const keys = keysRef.current;
 
-            // Throttle: cumulative, Space increases, Shift decreases
-            if (keys.space) throttleRef.current = Math.min(1.0, throttleRef.current + 0.02);
-            if (keys.shift) throttleRef.current = Math.max(0.0, throttleRef.current - 0.02);
+            // Throttle: cumulative
+            if (keys.space) throttleRef.current = Math.min(1.0, throttleRef.current + THROTTLE_RATE);
+            if (keys.shift) throttleRef.current = Math.max(0.0, throttleRef.current - THROTTLE_RATE);
 
-            // Momentary axes
-            let pitch = 0;
-            let roll = 0;
-            let yaw = 0;
+            // Compute target axes from keys
+            let targetPitch = 0;
+            let targetRoll = 0;
+            let targetYaw = 0;
 
             if (isFixedWing) {
-                // Fixed-wing: W=pitch up, S=pitch down, A=yaw left, D=yaw right
-                if (keys.w) pitch = 1.0;
-                if (keys.s) pitch = -1.0;
-                if (keys.a) yaw = -1.0;
-                if (keys.d) yaw = 1.0;
+                if (keys.w) targetPitch = 1.0;
+                if (keys.s) targetPitch = -1.0;
+                if (keys.a) targetYaw = -1.0;
+                if (keys.d) targetYaw = 1.0;
             } else {
-                // Rotorcraft: W=pitch forward, S=pitch back, A=roll left, D=roll right, Q=yaw left, E=yaw right
-                if (keys.w) pitch = 1.0;
-                if (keys.s) pitch = -1.0;
-                if (keys.a) roll = -1.0;
-                if (keys.d) roll = 1.0;
-                if (keys.q) yaw = -1.0;
-                if (keys.e) yaw = 1.0;
+                if (keys.w) targetPitch = 1.0;
+                if (keys.s) targetPitch = -1.0;
+                if (keys.a) targetRoll = -1.0;
+                if (keys.d) targetRoll = 1.0;
+                if (keys.q) targetYaw = -1.0;
+                if (keys.e) targetYaw = 1.0;
             }
+
+            // Smooth ramp toward targets
+            const rampRate = (t: number, current: number) =>
+                Math.abs(t) > Math.abs(current) ? RAMP_UP : RAMP_DOWN;
+
+            smoothPitch.current = approach(smoothPitch.current, targetPitch, rampRate(targetPitch, smoothPitch.current));
+            smoothRoll.current = approach(smoothRoll.current, targetRoll, rampRate(targetRoll, smoothRoll.current));
+            smoothYaw.current = approach(smoothYaw.current, targetYaw, rampRate(targetYaw, smoothYaw.current));
 
             sendInput({
                 throttle: throttleRef.current,
-                pitch,
-                roll,
-                yaw,
+                pitch: smoothPitch.current,
+                roll: smoothRoll.current,
+                yaw: smoothYaw.current,
             });
-        }, 1000 / 30); // 30Hz
+        }, 1000 / 30);
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
