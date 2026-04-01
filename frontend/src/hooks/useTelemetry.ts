@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DroneState } from '../types/drone';
+import type { DroneState, FlightInput } from '../types/drone';
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 
@@ -59,5 +59,18 @@ export function useTelemetry(url: string) {
         };
     }, [connect]);
 
-    return { droneState, status, connected: status === 'connected' };
+    const sendInput = useCallback((input: FlightInput) => {
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'flight_input',
+                throttle: input.throttle,
+                pitch: input.pitch,
+                roll: input.roll,
+                yaw: input.yaw,
+            }));
+        }
+    }, []);
+
+    return { droneState, status, connected: status === 'connected', sendInput };
 }

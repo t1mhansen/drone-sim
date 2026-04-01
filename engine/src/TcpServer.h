@@ -30,13 +30,15 @@
 //   msg_type 0x02 = Command (client -> engine): int32 type + int32 rotor_index + float64 throttle = 16 bytes
 //   msg_type 0x03 = DroneConfig (client -> engine): int32 type + int32 numRotors + 4 doubles = 40 bytes
 
-static constexpr uint8_t MSG_TYPE_STATE   = 0x01;
-static constexpr uint8_t MSG_TYPE_COMMAND = 0x02;
-static constexpr uint8_t MSG_TYPE_CONFIG  = 0x03;
-static constexpr size_t  HEADER_SIZE      = 5; // 4-byte length + 1-byte type
-static constexpr size_t  STATE_PAYLOAD    = 104;
-static constexpr size_t  COMMAND_PAYLOAD  = 16;
-static constexpr size_t  CONFIG_PAYLOAD   = 40; // int32 + int32 + 4 doubles
+static constexpr uint8_t MSG_TYPE_STATE        = 0x01;
+static constexpr uint8_t MSG_TYPE_COMMAND      = 0x02;
+static constexpr uint8_t MSG_TYPE_CONFIG       = 0x03;
+static constexpr uint8_t MSG_TYPE_FLIGHT_INPUT = 0x04;
+static constexpr size_t  HEADER_SIZE           = 5;
+static constexpr size_t  STATE_PAYLOAD         = 104;
+static constexpr size_t  COMMAND_PAYLOAD       = 16;
+static constexpr size_t  CONFIG_PAYLOAD        = 40;
+static constexpr size_t  FLIGHT_INPUT_PAYLOAD  = 32; // 4 doubles
 
 struct ClientConnection {
     socket_t sock;
@@ -47,6 +49,8 @@ struct ParsedMessage {
     Command command;
     DroneConfig config;
     bool hasConfig;
+    FlightInput flightInput;
+    bool hasFlightInput;
 };
 
 class TcpServer {

@@ -144,6 +144,8 @@ ParsedMessage TcpServer::readMessages() {
     ParsedMessage result;
     result.command = {CommandType::NONE, 0, 0.0};
     result.hasConfig = false;
+    result.flightInput = {0.0, 0.0, 0.0, 0.0};
+    result.hasFlightInput = false;
 
     std::lock_guard<std::mutex> lock(clientMutex);
     auto it = clients.begin();
@@ -209,6 +211,12 @@ ParsedMessage TcpServer::readMessages() {
                 result.config.dragCoeff = dragCoeff;
                 result.config.liftCoeff = liftCoeff;
                 result.hasConfig = true;
+            } else if (msgType == MSG_TYPE_FLIGHT_INPUT && payloadLen == FLIGHT_INPUT_PAYLOAD) {
+                std::memcpy(&result.flightInput.throttle, payload, 8);
+                std::memcpy(&result.flightInput.pitch, payload + 8, 8);
+                std::memcpy(&result.flightInput.roll, payload + 16, 8);
+                std::memcpy(&result.flightInput.yaw, payload + 24, 8);
+                result.hasFlightInput = true;
             }
 
             it->recvBuffer.erase(

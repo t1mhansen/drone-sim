@@ -1,76 +1,101 @@
 # drone-sim
 
-A full-stack autonomous drone simulation platform built across three languages, each chosen for where it actually makes sense. The core is a C++ physics engine running at 1000Hz, a Python backend handling path planning and a REST/WebSocket API, and a React/TypeScript frontend that renders everything live in 3D.
+A military drone flight simulator built across three languages. Fly real-world drone profiles — FPV kamikazes, DJI Mavics, Shahed-136 cruise missiles — with keyboard controls over a procedural urban combat zone. The core is a C++ physics engine running at 1000Hz, a Python backend bridging telemetry and controls via WebSocket, and a React/Three.js frontend rendering everything live in 3D.
 
 ---
 
 ## What it does
 
-- **Physics simulation** — 6-DOF rigid body simulation with rotor thrust modeling and an RK4 integrator for numerical stability.
-- **Path planning** — A* and RRT* planners running head-to-head on the same missions, with a benchmarking API that compares path length and compute time.
-- **Live telemetry** — Drone state streams from C++ → Python → React over WebSocket at 30Hz, downsampled from the 1000Hz physics loop.
-- **Mission designer** — Place waypoints and obstacles, select an algorithm, launch. The planned path renders as a line in the 3D scene alongside obstacle visualization.
-- **Fault injection** — Kill individual rotors mid-flight and watch the drone respond. Hit reset and it recovers.
-- **Mission persistence** — Missions saved to SQLite.
+- **Fly 5 real drone profiles** — FPV Racing, DJI Mavic 3, Ukraine FPV Kamikaze, DJI Matrice 600, Shahed-136. Each has real-world physics parameters (mass, thrust, drag, lift) that produce distinct flight characteristics.
+- **Two flight models** — Rotorcraft (quad/hex/octo) with differential thrust mixing, and fixed-wing with airspeed-dependent lift, elevator, and rudder controls.
+- **WASD flight controls** — Keyboard input captured at 30Hz. Throttle is cumulative (Space/Shift), pitch/roll/yaw are momentary. Different key mappings for rotorcraft vs fixed-wing.
+- **Three camera modes** — Chase (smooth follow behind/above), FPV (first-person at drone), Orbit (free camera tracking drone). Press C to cycle.
+- **Urban combat environment** — Procedurally generated city with ~100 buildings, road grid, and vehicle targets. Deterministic seed so the city is consistent across sessions.
+- **Live telemetry HUD** — Speed (m/s + km/h), heading, vertical speed, altitude, position. All streaming at 30Hz from the physics engine.
+- **Fault injection** — Kill individual rotors mid-flight to simulate battle damage. Reset to recover.
 
 ---
 
 ## Architecture
 
 ```
-C++ Engine (1000Hz)
-    |  TCP socket (port 9001)
-Python Planner (FastAPI)
-    |  WebSocket @ 30Hz
+C++ Engine (1000Hz physics)
+    |  TCP socket (binary protocol, port 9001)
+Python Server (FastAPI)
+    |  WebSocket (bidirectional, 30Hz telemetry + flight input)
 React Frontend (Three.js)
 ```
 
-Three separate processes communicating over TCP. The engine broadcasts drone state to connected clients and accepts commands. The Python planner connects as a TCP client, serves the REST/WebSocket API, and in production also serves the built frontend assets.
+Three separate processes communicating over TCP. The engine broadcasts drone state and accepts commands (throttle, config, flight input, reset). The Python server connects as a TCP client, relays flight controls from the browser to the engine, and streams telemetry back. In production it also serves the built frontend.
 
 ```
 drone-sim/
 ├── engine/                       # C++ physics core (CMake)
 │   └── src/
-│       ├── DroneState.h          # 6-DOF state representation
-│       ├── PhysicsEngine.cpp     # gravity, thrust, RK4 integration
-│       ├── Rotor.cpp             # thrust model
-│       ├── RK4Integrator.cpp     # numerical integration
-│       ├── TcpServer.cpp         # cross-platform TCP IPC
-│       ├── CommandChannel.h      # command type definitions
+│       ├── DroneState.h          # 13-variable state (pos, quat, vel, accel)
+│       ├── DroneConfig.h         # configurable drone physics params
+│       ├── PhysicsEngine.cpp     # rotorcraft + fixed-wing flight models
+│       ├── Rotor.cpp             # thrust model per rotor
+│       ├── RK4Integrator.cpp     # 4th-order Runge-Kutta integration
+│       ├── TcpServer.cpp         # cross-platform TCP IPC (Win/Mac/Linux)
+│       ├── CommandChannel.h      # command types + flight input struct
+│       ├── main.cpp              # main loop with rotorcraft mixer
 │       └── Logger.cpp            # JSON flight logging
-├── planner/                      # Python planning service
-│   ├── planner/
-│   │   ├── astar.py              # A* path planner
-│   │   └── rrt_star.py           # RRT* path planner
+├── planner/                      # Python server
 │   ├── api/
-│   │   └── server.py             # FastAPI + WebSocket + static file serving
-│   ├── database/
-│   │   └── db.py                 # SQLite via SQLAlchemy
-│   └── tcp_client.py             # TCP client to C++ engine
+│   │   └── server.py             # FastAPI + bidirectional WebSocket
+│   ├── tcp_client.py             # TCP client to C++ engine
+│   ├── drone_profiles.py         # 5 military drone presets
+│   └── models/
+│       └── drone_state.py        # Python DroneState dataclass
 └── frontend/                     # React/TypeScript (Vite)
     └── src/
         ├── components/
-        │   ├── Scene3D.tsx        # Three.js 3D scene with obstacles
-        │   ├── TelemetryHUD.tsx   # live telemetry overlay
-        │   ├── MissionPlanner.tsx # waypoint/obstacle UI
+        │   ├── Scene3D.tsx        # 3D scene + camera controller
+        │   ├── UrbanEnvironment   # procedural city generator
+        │   ├── TelemetryHUD.tsx   # speed, heading, altitude overlay
+        │   ├── FlightControls.tsx # visual key state + throttle bar
+        │   ├── DroneSelector.tsx  # drone profile picker with specs
         │   └── FaultInjection.tsx # rotor kill/reset panel
         └── hooks/
-            └── useTelemetry.ts    # WebSocket hook with reconnection
+            ├── useTelemetry.ts    # bidirectional WebSocket hook
+            └── useFlightControls  # keyboard capture at 30Hz
 ```
 
+---
 
 ## The physics
 
-The drone is modeled as a rigid body with 13 state variables:
+Each drone is modeled with 13 state variables: position (x, y, z), orientation quaternion (qx, qy, qz, qw), linear velocity (vx, vy, vz), and angular velocity (ax, ay, az). Integration uses RK4 at a 1ms timestep.
 
-- **Position** — x, y, z in meters
-- **Orientation** — quaternion (qx, qy, qz, qw) to avoid gimbal lock
-- **Linear velocity** — vx, vy, vz in m/s
-- **Angular velocity** — ax, ay, az in rad/s
+**Rotorcraft model**: Each rotor produces `thrust = throttle * maxThrust`. A mixer translates pitch/roll/yaw input into per-rotor differential thrust based on angular position. Pitch and roll tilt the thrust vector to produce horizontal movement.
 
-Each rotor produces thrust proportional to throttle: `thrust = throttle × maxThrust`. Net vertical acceleration is `(totalThrust / mass) - g`.
+**Fixed-wing model**: A single engine produces thrust along the velocity vector. Lift scales with airspeed squared (`lift = liftCoeff * v²`). Pitch input applies elevator force (vertical), yaw input rotates the velocity heading (rudder). The drone stalls if it slows below a threshold.
 
-Integration uses RK4 rather than Euler. The difference is measurable — free fall from 100m gives `95.0999m` with Euler vs the theoretical `95.095m` with RK4. Small over one second, significant over a long flight.
+**Drone profiles** differ in mass, rotor count, max thrust, drag coefficient, and lift coefficient. A heavy-lift DJI Matrice (6 rotors, 15kg) handles nothing like an FPV racing quad (4 rotors, 0.8kg) or a Shahed-136 cruise missile (fixed-wing, 200kg).
+
+---
+
+## Controls
+
+### Rotorcraft (quad, hex, octo)
+| Key | Action |
+|-----|--------|
+| W / S | Pitch forward / back |
+| A / D | Roll left / right |
+| Q / E | Yaw left / right |
+| Space | Throttle up |
+| Shift | Throttle down |
+| C | Cycle camera mode |
+
+### Fixed-wing (Shahed-136)
+| Key | Action |
+|-----|--------|
+| W / S | Pitch up / down (elevator) |
+| A / D | Yaw left / right (rudder) |
+| Space | Throttle up |
+| Shift | Throttle down |
+| C | Cycle camera mode |
 
 ---
 
@@ -97,7 +122,7 @@ make          # or cmake --build . on Windows
 
 The engine listens on TCP port 9001 by default. Set `ENGINE_PORT` to change it.
 
-### Python planner
+### Python server
 
 ```bash
 cd planner
@@ -125,32 +150,24 @@ Open `http://localhost:5173`. The Vite dev server proxies API requests to the Py
 docker-compose up --build
 ```
 
-Open `http://localhost:8000`. Everything is served from port 8000 — the planner builds the frontend into its image and serves it as static files. No `ipc: host` required.
+Open `http://localhost:8000`. The planner builds the frontend into its image and serves it as static files.
 
 ---
 
 ## Demo
 
 1. Start all three services (or just `docker-compose up`)
-2. The drone appears in the 3D scene hovering at 100m
-3. Use the **Mission Planner** panel to set waypoints and obstacles, select A* or RRT*, and launch — the planned path renders as a yellow line, obstacles appear as red spheres
-4. Use the **Fault Injection** panel to kill a rotor — the drone falls under gravity
-5. Hit **Reset** to restore hover
-
-The **benchmark endpoint** at `/plan/benchmark` runs both planners on the same mission and returns a head-to-head comparison of path length and compute time.
-
----
-
-## Things I'd add with more time
-
-- Kalman filter for state estimation — bridging the gap between simulation and real sensor noise
-- Replay UI — the flight logs are already in SQLite, just needs a frontend scrubber
-- Split-view planner comparison — A* and RRT* running simultaneously on the same mission
+2. The drone spawns at 100m altitude over the city
+3. Select a drone from the **Drone Selector** — each shows real specs, pros/cons
+4. Fly with **WASD** — the flight controls HUD shows active keys and throttle
+5. Press **C** to cycle between Chase, FPV, and Orbit cameras
+6. Try the **Shahed-136** — it's fixed-wing, needs forward speed to stay airborne
+7. Use **Fault Injection** to kill a rotor and watch the drone respond
 
 ---
 
 ## Built with
 
 - C++17, CMake, cross-platform TCP sockets
-- Python 3, FastAPI, SQLAlchemy
+- Python 3, FastAPI, WebSocket
 - React, TypeScript, Vite, Three.js, @react-three/fiber

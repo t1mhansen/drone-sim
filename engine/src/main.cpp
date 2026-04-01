@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cstdlib>
+#include <cmath>
+#include <algorithm>
 #include "DroneState.h"
 #include "DroneConfig.h"
 #include "PhysicsEngine.h"
@@ -85,6 +87,29 @@ int main() {
                       << std::endl;
             physics.applyConfig(msg.config);
             resetDrone(drone, physics);
+        }
+
+        // Handle flight input (WASD controls)
+        if (msg.hasFlightInput) {
+            physics.setFlightInput(msg.flightInput);
+            if (physics.getConfig().type == DroneType::FIXED_WING) {
+                // Fixed-wing: throttle controls engine directly
+                if (physics.getRotorCount() > 0) {
+                    physics.getRotor(0).throttle = msg.flightInput.throttle;
+                }
+            } else {
+                // Rotorcraft: mix throttle/pitch/roll/yaw into per-rotor thrust
+                int n = physics.getRotorCount();
+                double mixScale = 0.3;
+                for (int i = 0; i < n; i++) {
+                    double angle = (2.0 * M_PI * i) / n;
+                    double t = msg.flightInput.throttle
+                             + msg.flightInput.pitch * std::cos(angle) * mixScale
+                             + msg.flightInput.roll * std::sin(angle) * mixScale
+                             + msg.flightInput.yaw * ((i % 2 == 0) ? 1.0 : -1.0) * mixScale;
+                    physics.getRotor(i).throttle = std::clamp(t, 0.0, 1.0);
+                }
+            }
         }
 
         // Handle commands

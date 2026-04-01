@@ -40,3 +40,10 @@ export interface DronesResponse {
     drones: Record<string, DroneProfile>;
     current: string;
 }
+
+export interface FlightInput {
+    throttle: number;
+    pitch: number;
+    roll: number;
+    yaw: number;
+}

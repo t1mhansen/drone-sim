@@ -8,10 +8,12 @@ from models.drone_state import DroneState
 MSG_TYPE_STATE = 0x01
 MSG_TYPE_COMMAND = 0x02
 MSG_TYPE_CONFIG = 0x03
+MSG_TYPE_FLIGHT_INPUT = 0x04
 HEADER_SIZE = 5  # 4-byte LE length + 1-byte type
 STATE_PAYLOAD = 104  # 13 doubles
 COMMAND_PAYLOAD = 16  # int32 + int32 + float64
 CONFIG_PAYLOAD = 40  # int32 + int32 + 4 doubles
+FLIGHT_INPUT_PAYLOAD = 32  # 4 doubles
 
 # Command types (must match C++ CommandType enum)
 COMMAND_SET_THROTTLE = 1
@@ -138,6 +140,18 @@ class EngineClient:
                     self._sock.sendall(header + payload)
                 except OSError as e:
                     print(f"Failed to send config: {e}")
+                    self._connected = False
+
+    def send_flight_input(self, throttle: float, pitch: float, roll: float, yaw: float):
+        """Send flight input (WASD controls) to the engine."""
+        payload = struct.pack("<4d", throttle, pitch, roll, yaw)
+        header = struct.pack("<IB", len(payload), MSG_TYPE_FLIGHT_INPUT)
+        with self._send_lock:
+            if self._sock and self._connected:
+                try:
+                    self._sock.sendall(header + payload)
+                except OSError as e:
+                    print(f"Failed to send flight input: {e}")
                     self._connected = False
 
     def close(self):
