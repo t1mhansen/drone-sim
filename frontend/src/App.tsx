@@ -1,15 +1,22 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useTelemetry } from './hooks/useTelemetry';
 import { WS_TELEMETRY_URL } from './config';
 import TelemetryHUD from './components/TelemetryHUD';
 import Scene3D from './components/Scene3D';
 import MissionPlanner from './components/MissionPlanner';
 import FaultInjection from './components/FaultInjection';
+import DroneSelector from './components/DroneSelector';
+import type { DroneProfile } from './types/drone';
 
 export default function App() {
     const { droneState, status } = useTelemetry(WS_TELEMETRY_URL);
     const [plannedPath, setPlannedPath] = useState<[number, number, number][]>([]);
     const [obstacles, setObstacles] = useState<[number, number, number][]>([]);
+    const [droneProfile, setDroneProfile] = useState<DroneProfile | null>(null);
+
+    const handleDroneChanged = useCallback((_id: string, profile: DroneProfile) => {
+        setDroneProfile(profile);
+    }, []);
 
     return (
         <div style={{ width: '100vw', height: '100vh', background: '#111', position: 'relative' }}>
@@ -21,11 +28,16 @@ export default function App() {
             </div>
 
             {/* 3D scene */}
-            <Scene3D state={droneState} plannedPath={plannedPath} obstacles={obstacles} />
+            <Scene3D state={droneState} plannedPath={plannedPath} obstacles={obstacles} droneProfile={droneProfile} />
 
             {/* telemetry HUD */}
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 999 }}>
                 <TelemetryHUD state={droneState} status={status} />
+            </div>
+
+            {/* drone selector */}
+            <div style={{ position: 'absolute', top: '80px', left: '16px', zIndex: 999 }}>
+                <DroneSelector onDroneChanged={handleDroneChanged} />
             </div>
 
             {/* mission planner */}

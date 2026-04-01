@@ -1,17 +1,22 @@
 #pragma once
 #include "DroneState.h"
+#include "DroneConfig.h"
 #include "Rotor.h"
-#include <array>
+#include <vector>
 #include "RK4Integrator.h"
 
 class PhysicsEngine {
-    public:
+public:
     PhysicsEngine();
     void update(DroneState& drone_state);
     Rotor& getRotor(int index);
-    private:
-    std::array<Rotor, 4> rotors;
-    RK4Integrator rk4Integrator;
-    [[nodiscard]] DroneState computeDerivative(const DroneState& state) const ;
+    void applyConfig(const DroneConfig& config);
+    const DroneConfig& getConfig() const;
+    int getRotorCount() const;
 
+private:
+    std::vector<Rotor> rotors;
+    DroneConfig config;
+    RK4Integrator rk4Integrator;
+    [[nodiscard]] DroneState computeDerivative(const DroneState& state) const;
 };

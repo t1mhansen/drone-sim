@@ -4,7 +4,8 @@
 enum class CommandType {
     NONE = 0,         // no command, normal operation
     SET_THROTTLE = 1, // set a specific rotor throttle
-    RESET = 2         // reset all rotors to hover
+    RESET = 2,        // reset all rotors to hover
+    SET_CONFIG = 3    // apply a new drone configuration
 };
 
 // A single command from Python to C++

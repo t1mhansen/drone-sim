@@ -1,23 +1,42 @@
-// mirrors the DroneState struct from C++ and Python
+// Mirrors the DroneState struct from C++ and Python
 export interface DroneState {
-    // position in meters
     x: number;
     y: number;
     z: number;
-
-    // orientation as quaternion
     qx: number;
     qy: number;
     qz: number;
     qw: number;
-
-    // linear velocity in meters per second
     vx: number;
     vy: number;
     vz: number;
-
-    // angular velocity in radians per second
     ax: number;
     ay: number;
     az: number;
+}
+
+export interface DroneProfile {
+    name: string;
+    type: 'rotorcraft' | 'fixed_wing';
+    description: string;
+    pros: string[];
+    cons: string[];
+    specs: {
+        max_speed: string;
+        range: string;
+        endurance: string;
+        cost: string;
+    };
+    physics: {
+        mass: number;
+        num_rotors: number;
+        max_thrust_per_rotor: number;
+        drag_coeff: number;
+        lift_coeff: number;
+    };
+}
+
+export interface DronesResponse {
+    drones: Record<string, DroneProfile>;
+    current: string;
 }

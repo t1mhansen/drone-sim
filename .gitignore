@@ -24,3 +24,9 @@ frontend/.env
 
 # DB
 planner/drone_sim.db
+
+# Runtime logs
+flight_log.json
+
+# Claude Code
+.claude/

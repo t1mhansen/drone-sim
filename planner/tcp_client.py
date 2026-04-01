@@ -7,9 +7,11 @@ from models.drone_state import DroneState
 # Wire protocol constants (must match C++ TcpServer)
 MSG_TYPE_STATE = 0x01
 MSG_TYPE_COMMAND = 0x02
+MSG_TYPE_CONFIG = 0x03
 HEADER_SIZE = 5  # 4-byte LE length + 1-byte type
 STATE_PAYLOAD = 104  # 13 doubles
 COMMAND_PAYLOAD = 16  # int32 + int32 + float64
+CONFIG_PAYLOAD = 40  # int32 + int32 + 4 doubles
 
 # Command types (must match C++ CommandType enum)
 COMMAND_SET_THROTTLE = 1
@@ -123,6 +125,20 @@ class EngineClient:
     def send_reset(self):
         """Send a RESET command to the engine."""
         self._send_command(COMMAND_RESET, 0, 0.0)
+
+    def send_config(self, drone_type: int, num_rotors: int, mass: float,
+                    max_thrust_per_rotor: float, drag_coeff: float, lift_coeff: float):
+        """Send a drone configuration to the engine (triggers drone swap)."""
+        payload = struct.pack("<ii4d", drone_type, num_rotors,
+                              mass, max_thrust_per_rotor, drag_coeff, lift_coeff)
+        header = struct.pack("<IB", len(payload), MSG_TYPE_CONFIG)
+        with self._send_lock:
+            if self._sock and self._connected:
+                try:
+                    self._sock.sendall(header + payload)
+                except OSError as e:
+                    print(f"Failed to send config: {e}")
+                    self._connected = False
 
     def close(self):
         """Stop background thread and close socket."""

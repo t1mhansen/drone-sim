@@ -10,6 +10,7 @@ from planner.astar import Astar
 from planner.rrt_star import Rrtstar
 from database.db import init_db, SessionLocal, MissionRecord, FlightLog
 from tcp_client import EngineClient
+from drone_profiles import PROFILES, DEFAULT_DRONE
 
 # Engine connection config from environment
 ENGINE_HOST = os.getenv("ENGINE_HOST", "localhost")
@@ -49,8 +50,62 @@ class MissionRequest(BaseModel):
 astar = Astar()
 rrtstar = Rrtstar()
 
+# Track selected drone
+current_drone = DEFAULT_DRONE
+
 # Initialize database on startup
 init_db()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/drones")
+async def list_drones():
+    """List all available drone profiles with specs."""
+    return {
+        "drones": {
+            key: {
+                "name": p["name"],
+                "type": "fixed_wing" if p["type"] == 1 else "rotorcraft",
+                "description": p["description"],
+                "pros": p["pros"],
+                "cons": p["cons"],
+                "specs": p["specs"],
+                "physics": {
+                    "mass": p["mass"],
+                    "num_rotors": p["num_rotors"],
+                    "max_thrust_per_rotor": p["max_thrust_per_rotor"],
+                    "drag_coeff": p["drag_coeff"],
+                    "lift_coeff": p["lift_coeff"],
+                },
+            }
+            for key, p in PROFILES.items()
+        },
+        "current": current_drone,
+    }
+
+
+@app.post("/drone/select/{drone_id}")
+async def select_drone(drone_id: str):
+    """Switch the active drone. Sends new config to C++ engine."""
+    global current_drone
+    if drone_id not in PROFILES:
+        return {"error": f"Unknown drone: {drone_id}", "available": list(PROFILES.keys())}
+
+    profile = PROFILES[drone_id]
+    engine_client.send_config(
+        drone_type=profile["type"],
+        num_rotors=profile["num_rotors"],
+        mass=profile["mass"],
+        max_thrust_per_rotor=profile["max_thrust_per_rotor"],
+        drag_coeff=profile["drag_coeff"],
+        lift_coeff=profile["lift_coeff"],
+    )
+    current_drone = drone_id
+    return {"status": "drone selected", "drone": profile["name"]}
 
 
 @app.post("/plan/astar")

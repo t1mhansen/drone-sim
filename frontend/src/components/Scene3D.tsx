@@ -1,51 +1,114 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid, PerspectiveCamera, Line } from '@react-three/drei';
-import type { DroneState } from '../types/drone';
+import type { DroneState, DroneProfile } from '../types/drone';
 
 interface Props {
     state: DroneState;
     plannedPath: [number, number, number][];
     obstacles: [number, number, number][];
+    droneProfile: DroneProfile | null;
 }
 
-// The drone mesh - a simple box body with 4 cylinder rotors
-function Drone({ state }: { state: DroneState }) {
+// Rotorcraft mesh - box body with cylinder rotors
+function RotorcraftMesh({ profile }: { profile: DroneProfile | null }) {
+    const numRotors = profile?.physics.num_rotors ?? 4;
+    const mass = profile?.physics.mass ?? 1.5;
+
+    // Scale body and rotors based on mass
+    const scale = Math.cbrt(mass / 1.5); // cube root scaling
+    const bodyW = 3 * scale;
+    const bodyH = 0.5 * scale;
+    const rotorR = 0.8 * scale;
+    const armLen = 1.8 * scale;
+
+    // Generate rotor positions in a circle
+    const rotorPositions: [number, number, number][] = [];
+    for (let i = 0; i < numRotors; i++) {
+        const angle = (2 * Math.PI * i) / numRotors;
+        rotorPositions.push([
+            armLen * Math.cos(angle),
+            bodyH * 0.6,
+            armLen * Math.sin(angle),
+        ]);
+    }
+
     return (
-        <group position={[state.x, state.z, state.y]}>
-            {/* drone body */}
+        <>
             <mesh>
-                <boxGeometry args={[3, 0.5, 3]} />
+                <boxGeometry args={[bodyW, bodyH, bodyW]} />
                 <meshStandardMaterial color="#00ff88" />
             </mesh>
-
-            {/* 4 rotors */}
-            {[[-1.8, 0.3, -1.8], [1.8, 0.3, -1.8], [-1.8, 0.3, 1.8], [1.8, 0.3, 1.8]].map((pos, i) => (
-                <mesh key={i} position={pos as [number, number, number]}>
-                    <cylinderGeometry args={[0.8, 0.8, 0.1, 16]} />
+            {rotorPositions.map((pos, i) => (
+                <mesh key={i} position={pos}>
+                    <cylinderGeometry args={[rotorR, rotorR, 0.1, 16]} />
                     <meshStandardMaterial color="#888888" />
                 </mesh>
             ))}
+        </>
+    );
+}
+
+// Fixed-wing mesh - delta wing body with pusher prop
+function FixedWingMesh({ profile }: { profile: DroneProfile | null }) {
+    const mass = profile?.physics.mass ?? 200;
+    const scale = Math.cbrt(mass / 50); // scale relative to a baseline
+
+    return (
+        <>
+            {/* Fuselage */}
+            <mesh rotation={[0, 0, 0]}>
+                <boxGeometry args={[1.2 * scale, 0.4 * scale, 4 * scale]} />
+                <meshStandardMaterial color="#556655" />
+            </mesh>
+            {/* Left wing */}
+            <mesh position={[-2 * scale, 0, -0.5 * scale]} rotation={[0, 0, 0.05]}>
+                <boxGeometry args={[3 * scale, 0.1 * scale, 2 * scale]} />
+                <meshStandardMaterial color="#667766" />
+            </mesh>
+            {/* Right wing */}
+            <mesh position={[2 * scale, 0, -0.5 * scale]} rotation={[0, 0, -0.05]}>
+                <boxGeometry args={[3 * scale, 0.1 * scale, 2 * scale]} />
+                <meshStandardMaterial color="#667766" />
+            </mesh>
+            {/* Tail fin */}
+            <mesh position={[0, 0.5 * scale, -1.8 * scale]}>
+                <boxGeometry args={[0.1 * scale, 1 * scale, 0.8 * scale]} />
+                <meshStandardMaterial color="#556655" />
+            </mesh>
+            {/* Nose cone */}
+            <mesh position={[0, 0, 2.2 * scale]} rotation={[Math.PI / 2, 0, 0]}>
+                <coneGeometry args={[0.4 * scale, 1 * scale, 8]} />
+                <meshStandardMaterial color="#ff4444" />
+            </mesh>
+        </>
+    );
+}
+
+function Drone({ state, profile }: { state: DroneState; profile: DroneProfile | null }) {
+    const isFixedWing = profile?.type === 'fixed_wing';
+
+    // Fixed-wing: rotate to face direction of travel
+    let rotY = 0;
+    if (isFixedWing) {
+        rotY = Math.atan2(state.vy, state.vx);
+    }
+
+    return (
+        <group position={[state.x, state.z, state.y]} rotation={[0, -rotY, 0]}>
+            {isFixedWing
+                ? <FixedWingMesh profile={profile} />
+                : <RotorcraftMesh profile={profile} />
+            }
         </group>
     );
 }
 
-// Renders the planned path as a yellow line through 3D space
 function PlannedPath({ path }: { path: [number, number, number][] }) {
     if (path.length < 2) return null;
-
-    // Remap coordinates to Three.js space (y is up in Three.js)
     const points = path.map(([x, y, z]) => [x, z, y] as [number, number, number]);
-
-    return (
-        <Line
-            points={points}
-            color="#ffff00"
-            lineWidth={2}
-        />
-    );
+    return <Line points={points} color="#ffff00" lineWidth={2} />;
 }
 
-// Renders obstacles as red semi-transparent spheres
 function Obstacles({ positions }: { positions: [number, number, number][] }) {
     return (
         <>
@@ -59,17 +122,15 @@ function Obstacles({ positions }: { positions: [number, number, number][] }) {
     );
 }
 
-export default function Scene3D({ state, plannedPath, obstacles }: Props) {
+export default function Scene3D({ state, plannedPath, obstacles, droneProfile }: Props) {
     return (
         <Canvas style={{ position: 'absolute', top: 0, left: 0 }} className="w-full h-full">
             <PerspectiveCamera makeDefault position={[20, 120, 20]} />
             <OrbitControls />
 
-            {/* lighting */}
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
 
-            {/* ground grid */}
             <Grid
                 args={[50, 50]}
                 position={[0, 0, 0]}
@@ -77,20 +138,14 @@ export default function Scene3D({ state, plannedPath, obstacles }: Props) {
                 sectionColor="#555555"
             />
 
-            {/* origin marker */}
             <mesh position={[0, 0, 0]}>
                 <sphereGeometry args={[0.5]} />
                 <meshStandardMaterial color="red" />
             </mesh>
 
-            {/* obstacles */}
             <Obstacles positions={obstacles} />
-
-            {/* planned path line */}
             <PlannedPath path={plannedPath} />
-
-            {/* the drone */}
-            <Drone state={state} />
+            <Drone state={state} profile={droneProfile} />
         </Canvas>
     );
 }

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include "DroneState.h"
+#include "DroneConfig.h"
 #include "PhysicsEngine.h"
 #include "Logger.h"
 #include "TcpServer.h"
@@ -23,6 +24,29 @@ void signalHandler(int signum) {
 }
 #endif
 
+static void resetDrone(DroneState& drone, PhysicsEngine& physics) {
+    const auto& config = physics.getConfig();
+
+    drone = DroneState();
+    drone.z = 100.0;
+
+    if (config.type == DroneType::FIXED_WING) {
+        // Fixed-wing starts with forward velocity to maintain lift
+        drone.vx = 50.0;
+        for (int i = 0; i < physics.getRotorCount(); i++) {
+            physics.getRotor(i).throttle = 0.5;
+        }
+    } else {
+        // Rotorcraft: compute hover throttle = (mass * g) / (numRotors * maxThrustPerRotor)
+        double hoverThrottle = (config.mass * 9.81) /
+            (config.numRotors * config.maxThrustPerRotor);
+        if (hoverThrottle > 1.0) hoverThrottle = 1.0;
+        for (int i = 0; i < physics.getRotorCount(); i++) {
+            physics.getRotor(i).throttle = hoverThrottle;
+        }
+    }
+}
+
 int main() {
 #ifdef _WIN32
     SetConsoleCtrlHandler(ConsoleHandler, TRUE);
@@ -40,11 +64,7 @@ int main() {
     Logger logger("flight_log.json", 10);
     TcpServer server(port);
 
-    drone.z = 100.0;
-
-    for (int i = 0; i < 4; i++) {
-        physics.getRotor(i).throttle = 0.375;
-    }
+    resetDrone(drone, physics);
 
     std::cout << "Start position: ("
               << drone.x << ", "
@@ -52,12 +72,23 @@ int main() {
               << drone.z << ")" << std::endl;
 
     while (running) {
-        // Accept any new client connections
         server.acceptClients();
 
-        // Read and process any incoming commands from Python
-        Command cmd = server.readCommand();
+        ParsedMessage msg = server.readMessages();
 
+        // Handle config change (drone swap)
+        if (msg.hasConfig) {
+            std::cout << "Applying new drone config: type="
+                      << (int)msg.config.type
+                      << " rotors=" << msg.config.numRotors
+                      << " mass=" << msg.config.mass << "kg"
+                      << std::endl;
+            physics.applyConfig(msg.config);
+            resetDrone(drone, physics);
+        }
+
+        // Handle commands
+        Command& cmd = msg.command;
         if (cmd.type != CommandType::NONE) {
             std::cout << "Received command: type=" << (int)cmd.type
                       << " rotor=" << cmd.rotor_index
@@ -65,15 +96,11 @@ int main() {
         }
 
         if (cmd.type == CommandType::SET_THROTTLE) {
-            physics.getRotor(cmd.rotor_index).throttle = cmd.throttle;
-        } else if (cmd.type == CommandType::RESET) {
-            for (int i = 0; i < 4; i++) {
-                physics.getRotor(i).throttle = 0.375;
+            if (cmd.rotor_index >= 0 && cmd.rotor_index < physics.getRotorCount()) {
+                physics.getRotor(cmd.rotor_index).throttle = cmd.throttle;
             }
-            drone.z = 100.0;
-            drone.vz = 0.0;
-            drone.vx = 0.0;
-            drone.vy = 0.0;
+        } else if (cmd.type == CommandType::RESET) {
+            resetDrone(drone, physics);
         }
 
         physics.update(drone);

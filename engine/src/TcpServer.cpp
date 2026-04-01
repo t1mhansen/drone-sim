@@ -96,19 +96,17 @@ bool TcpServer::sendAll(socket_t sock, const uint8_t* data, size_t len) {
 }
 
 void TcpServer::acceptClients() {
-    // Accept all pending connections in a loop
     while (true) {
         sockaddr_in clientAddr{};
         socklen_t addrLen = sizeof(clientAddr);
         socket_t newSock = accept(listenSock, reinterpret_cast<sockaddr*>(&clientAddr), &addrLen);
 
         if (newSock == INVALID_SOCK) {
-            break; // No more pending connections
+            break;
         }
 
         setNonBlocking(newSock);
 
-        // Disable Nagle's algorithm for low-latency command delivery
         int noDelay = 1;
 #ifdef _WIN32
         setsockopt(newSock, IPPROTO_TCP, TCP_NODELAY, (const char*)&noDelay, sizeof(noDelay));
@@ -123,7 +121,6 @@ void TcpServer::acceptClients() {
 }
 
 void TcpServer::broadcastState(const DroneState& state) {
-    // Build framed message: [4-byte LE length][1-byte type][104-byte payload]
     uint8_t frame[HEADER_SIZE + STATE_PAYLOAD];
     uint32_t payloadLen = STATE_PAYLOAD;
     std::memcpy(frame, &payloadLen, 4);
@@ -143,26 +140,25 @@ void TcpServer::broadcastState(const DroneState& state) {
     }
 }
 
-Command TcpServer::readCommand() {
-    Command result{CommandType::NONE, 0, 0.0};
+ParsedMessage TcpServer::readMessages() {
+    ParsedMessage result;
+    result.command = {CommandType::NONE, 0, 0.0};
+    result.hasConfig = false;
 
     std::lock_guard<std::mutex> lock(clientMutex);
     auto it = clients.begin();
     while (it != clients.end()) {
-        // Try to recv data from this client
         uint8_t buf[256];
         auto n = recv(it->sock, reinterpret_cast<char*>(buf), sizeof(buf), 0);
 
         if (n > 0) {
             it->recvBuffer.insert(it->recvBuffer.end(), buf, buf + n);
         } else if (n == 0) {
-            // Client closed connection
             std::cout << "Client disconnected (closed)" << std::endl;
             closeSocket(it->sock);
             it = clients.erase(it);
             continue;
         } else {
-            // n < 0: check if it's a real error or just EWOULDBLOCK
 #ifdef _WIN32
             int err = WSAGetLastError();
             if (err != WSAEWOULDBLOCK) {
@@ -176,29 +172,45 @@ Command TcpServer::readCommand() {
             }
         }
 
-        // Try to parse a complete command frame from the buffer
+        // Parse complete frames from buffer
         while (it != clients.end() && it->recvBuffer.size() >= HEADER_SIZE) {
             uint32_t payloadLen;
             std::memcpy(&payloadLen, it->recvBuffer.data(), 4);
             uint8_t msgType = it->recvBuffer[4];
 
             if (it->recvBuffer.size() < HEADER_SIZE + payloadLen) {
-                break; // Incomplete message, wait for more data
+                break;
             }
 
+            const uint8_t* payload = it->recvBuffer.data() + HEADER_SIZE;
+
             if (msgType == MSG_TYPE_COMMAND && payloadLen == COMMAND_PAYLOAD) {
-                const uint8_t* payload = it->recvBuffer.data() + HEADER_SIZE;
                 int32_t cmdType, rotorIndex;
                 double throttle;
                 std::memcpy(&cmdType, payload, 4);
                 std::memcpy(&rotorIndex, payload + 4, 4);
                 std::memcpy(&throttle, payload + 8, 8);
-                result.type = static_cast<CommandType>(cmdType);
-                result.rotor_index = rotorIndex;
-                result.throttle = throttle;
+                result.command.type = static_cast<CommandType>(cmdType);
+                result.command.rotor_index = rotorIndex;
+                result.command.throttle = throttle;
+            } else if (msgType == MSG_TYPE_CONFIG && payloadLen == CONFIG_PAYLOAD) {
+                int32_t droneType, numRotors;
+                double mass, maxThrustPerRotor, dragCoeff, liftCoeff;
+                std::memcpy(&droneType, payload, 4);
+                std::memcpy(&numRotors, payload + 4, 4);
+                std::memcpy(&mass, payload + 8, 8);
+                std::memcpy(&maxThrustPerRotor, payload + 16, 8);
+                std::memcpy(&dragCoeff, payload + 24, 8);
+                std::memcpy(&liftCoeff, payload + 32, 8);
+                result.config.type = static_cast<DroneType>(droneType);
+                result.config.numRotors = numRotors;
+                result.config.mass = mass;
+                result.config.maxThrustPerRotor = maxThrustPerRotor;
+                result.config.dragCoeff = dragCoeff;
+                result.config.liftCoeff = liftCoeff;
+                result.hasConfig = true;
             }
 
-            // Remove consumed frame from buffer
             it->recvBuffer.erase(
                 it->recvBuffer.begin(),
                 it->recvBuffer.begin() + HEADER_SIZE + payloadLen
