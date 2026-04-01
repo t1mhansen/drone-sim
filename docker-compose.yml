@@ -1,20 +1,21 @@
-version: '3.8'
-
 services:
 
   engine:
     build: ./engine
-    # share host IPC namespace so C++ and Python can use POSIX shared memory
-    ipc: host
+    environment:
+      - ENGINE_PORT=9001
     restart: unless-stopped
 
   planner:
-    build: ./planner
-    # share host IPC namespace - same reason
-    ipc: host
+    build:
+      context: .
+      dockerfile: planner/Dockerfile
     ports:
       - "8000:8000"
-    # wait for engine to start first
+    environment:
+      - ENGINE_HOST=engine
+      - ENGINE_PORT=9001
+      - FRONTEND_DIR=/app/static
     depends_on:
       - engine
     restart: unless-stopped

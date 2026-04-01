@@ -5,9 +5,10 @@ import type { DroneState } from '../types/drone';
 interface Props {
     state: DroneState;
     plannedPath: [number, number, number][];
+    obstacles: [number, number, number][];
 }
 
-// the drone mesh - a simple box body with 4 cylinder rotors
+// The drone mesh - a simple box body with 4 cylinder rotors
 function Drone({ state }: { state: DroneState }) {
     return (
         <group position={[state.x, state.z, state.y]}>
@@ -28,11 +29,11 @@ function Drone({ state }: { state: DroneState }) {
     );
 }
 
-// renders the planned path as a yellow line through 3D space
+// Renders the planned path as a yellow line through 3D space
 function PlannedPath({ path }: { path: [number, number, number][] }) {
     if (path.length < 2) return null;
 
-    // remap coordinates to Three.js space (y is up in Three.js)
+    // Remap coordinates to Three.js space (y is up in Three.js)
     const points = path.map(([x, y, z]) => [x, z, y] as [number, number, number]);
 
     return (
@@ -44,7 +45,21 @@ function PlannedPath({ path }: { path: [number, number, number][] }) {
     );
 }
 
-export default function Scene3D({ state, plannedPath }: Props) {
+// Renders obstacles as red semi-transparent spheres
+function Obstacles({ positions }: { positions: [number, number, number][] }) {
+    return (
+        <>
+            {positions.map(([x, y, z], i) => (
+                <mesh key={i} position={[x, z, y]}>
+                    <sphereGeometry args={[1, 16, 16]} />
+                    <meshStandardMaterial color="#ff4444" transparent opacity={0.5} />
+                </mesh>
+            ))}
+        </>
+    );
+}
+
+export default function Scene3D({ state, plannedPath, obstacles }: Props) {
     return (
         <Canvas style={{ position: 'absolute', top: 0, left: 0 }} className="w-full h-full">
             <PerspectiveCamera makeDefault position={[20, 120, 20]} />
@@ -67,6 +82,9 @@ export default function Scene3D({ state, plannedPath }: Props) {
                 <sphereGeometry args={[0.5]} />
                 <meshStandardMaterial color="red" />
             </mesh>
+
+            {/* obstacles */}
+            <Obstacles positions={obstacles} />
 
             {/* planned path line */}
             <PlannedPath path={plannedPath} />

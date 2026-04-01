@@ -1,18 +1,37 @@
+import os
 import time
 import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from planner.astar import Astar
 from planner.rrt_star import Rrtstar
-from shared_memory import SharedMemoryReader
 from database.db import init_db, SessionLocal, MissionRecord, FlightLog
-from command_channel import CommandChannelWriter
+from tcp_client import EngineClient
 
-# create FastAPI app
-app = FastAPI(title="Drone Sim Planner API")
+# Engine connection config from environment
+ENGINE_HOST = os.getenv("ENGINE_HOST", "localhost")
+ENGINE_PORT = int(os.getenv("ENGINE_PORT", "9001"))
 
-# allow React frontend to connect from any origin
+# Singleton engine client
+engine_client = EngineClient(ENGINE_HOST, ENGINE_PORT)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Connect to engine on startup, disconnect on shutdown."""
+    engine_client.connect()
+    engine_client.start()
+    yield
+    engine_client.close()
+
+
+# Create FastAPI app
+app = FastAPI(title="Drone Sim Planner API", lifespan=lifespan)
+
+# Allow React frontend to connect from any origin (dev mode)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,20 +40,18 @@ app.add_middleware(
 )
 
 # Pydantic model for mission requests
-# FastAPI uses this to validate and parse incoming JSON automatically
 class MissionRequest(BaseModel):
-    start: tuple[float, float, float]       # starting position (x, y, z)
-    goal: tuple[float, float, float]        # goal position (x, y, z)
-    obstacles: list[tuple[float, float, float]]  # list of obstacle positions
+    start: tuple[float, float, float]
+    goal: tuple[float, float, float]
+    obstacles: list[tuple[float, float, float]]
 
-# initialize both planners once at startup
+# Initialize both planners once at startup
 astar = Astar()
 rrtstar = Rrtstar()
 
-# command channel - writes commands to C++ engine
-commands = CommandChannelWriter("/drone_commands")
-# initialize database on startup
+# Initialize database on startup
 init_db()
+
 
 @app.post("/plan/astar")
 async def plan_astar(mission: MissionRequest):
@@ -69,13 +86,10 @@ async def plan_rrtstar(mission: MissionRequest):
 @app.post("/plan/benchmark")
 async def benchmark(mission: MissionRequest):
     """Run both planners on the same mission and compare results head to head."""
-
-    # run A* and time it
     start_time = time.time()
     astar_path = astar.find_path(mission.start, mission.goal, mission.obstacles)
     astar_time = time.time() - start_time
 
-    # run RRT* and time it
     start_time = time.time()
     rrt_path = rrtstar.find_path(mission.start, mission.goal, mission.obstacles)
     rrt_time = time.time() - start_time
@@ -89,7 +103,6 @@ async def benchmark(mission: MissionRequest):
             "path_length": len(rrt_path),
             "compute_time_ms": round(rrt_time * 1000, 3)
         },
-        # whoever finished faster wins
         "winner": "astar" if astar_time < rrt_time else "rrtstar"
     }
 
@@ -101,7 +114,6 @@ async def save_mission(mission: MissionRequest):
     path = astar.find_path(mission.start, mission.goal, mission.obstacles)
     compute_time = time.time() - start_time
 
-    # save to database
     db = SessionLocal()
     try:
         record = MissionRecord(
@@ -149,27 +161,24 @@ async def kill_rotor(rotor_index: int):
     """Kill a specific rotor to simulate motor failure."""
     if rotor_index < 0 or rotor_index > 3:
         return {"error": "rotor_index must be 0-3"}
-    cmd = CommandChannelWriter("/drone_commands")
-    cmd.set_throttle(rotor_index, 0.0)
+    engine_client.send_set_throttle(rotor_index, 0.0)
     return {"status": "rotor killed", "rotor": rotor_index}
 
 
 @app.post("/fault/reset")
 async def reset_rotors():
     """Restore all rotors to hover throttle."""
-    cmd = CommandChannelWriter("/drone_commands")
-    cmd.reset()
+    engine_client.send_reset()
     return {"status": "rotors reset to hover"}
+
 
 @app.websocket("/ws/telemetry")
 async def telemetry(websocket: WebSocket):
     """Stream live drone state to the React frontend at 30Hz via WebSocket."""
     await websocket.accept()
-    reader = None
     try:
-        reader = SharedMemoryReader("/drone_state")
         while True:
-            state = reader.read()
+            state = engine_client.read_state()
             await websocket.send_json({
                 "x": state.x,
                 "y": state.y,
@@ -187,8 +196,10 @@ async def telemetry(websocket: WebSocket):
             })
             await asyncio.sleep(1/30)
     except Exception:
-        # client disconnected - just pass, don't try to close again
         pass
-    finally:
-        if reader:
-            reader.close()
+
+
+# Serve built frontend assets if FRONTEND_DIR is set
+frontend_dir = os.getenv("FRONTEND_DIR")
+if frontend_dir and os.path.isdir(frontend_dir):
+    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="static")

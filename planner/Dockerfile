@@ -1,21 +1,22 @@
-# start from an official Python image
-FROM python:3.11-slim
+# Stage 1: Build frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ .
+RUN npm run build
 
-# set working directory inside the container
+# Stage 2: Python planner + serve frontend
+FROM python:3.11-slim
 WORKDIR /app
 
-# copy requirements first - Docker caches this layer
-# so it only reinstalls packages if requirements.txt changes
-COPY requirements.txt .
-
-# install dependencies
+COPY planner/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy the rest of the code
-COPY . .
+COPY planner/ .
+COPY --from=frontend-build /app/dist /app/static
 
-# expose port 8000 for FastAPI
+ENV FRONTEND_DIR=/app/static
 EXPOSE 8000
 
-# start the server
 CMD ["python3", "-m", "uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "8000"]

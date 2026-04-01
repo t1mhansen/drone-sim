@@ -1,21 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 import type { Waypoint, Obstacle, Mission } from '../types/mission';
 
 interface Props {
     onMissionPlanned: (path: [number, number, number][]) => void;
+    onObstaclesChanged: (obstacles: [number, number, number][]) => void;
 }
 
-export default function MissionPlanner({ onMissionPlanned }: Props) {
-    const [waypoints, setWaypoints] = useState<Waypoint[]>([
+export default function MissionPlanner({ onMissionPlanned, onObstaclesChanged }: Props) {
+    const [waypoints] = useState<Waypoint[]>([
         { id: 1, x: 0, y: 0, z: 0 },
         { id: 2, x: 10, y: 10, z: 10 }
     ]);
-    const [obstacles, setObstacles] = useState<Obstacle[]>([
+    const [obstacles] = useState<Obstacle[]>([
         { id: 1, x: 5, y: 5, z: 5 }
     ]);
     const [algorithm, setAlgorithm] = useState<'astar' | 'rrtstar'>('astar');
     const [result, setResult] = useState<Mission | null>(null);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        onObstaclesChanged(obstacles.map(o => [o.x, o.y, o.z]));
+    }, [obstacles, onObstaclesChanged]);
 
     const launch = async () => {
         if (waypoints.length < 2) return;
@@ -26,7 +32,7 @@ export default function MissionPlanner({ onMissionPlanned }: Props) {
         const obs = obstacles.map(o => [o.x, o.y, o.z]);
 
         try {
-            const response = await fetch(`http://localhost:8000/plan/${algorithm}`, {
+            const response = await fetch(`${API_BASE_URL}/plan/${algorithm}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ start, goal, obstacles: obs })

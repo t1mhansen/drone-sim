@@ -6,5 +6,8 @@ add_executable(drone_sim_engine src/main.cpp
         src/Rotor.cpp
         src/RK4Integrator.cpp
         src/Logger.cpp
-        src/SharedMemory.cpp
-        src/CommandChannel.cpp)
+        src/TcpServer.cpp)
+
+if(WIN32)
+    target_link_libraries(drone_sim_engine ws2_32)
+endif()

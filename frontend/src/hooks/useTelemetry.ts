@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { DroneState } from '../types/drone';
 
-// default state - drone at origin, level, not moving
+export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+
 const defaultState: DroneState = {
     x: 0, y: 0, z: 0,
     qx: 0, qy: 0, qz: 0, qw: 1,
@@ -10,38 +11,53 @@ const defaultState: DroneState = {
 };
 
 export function useTelemetry(url: string) {
-    // current drone state
     const [droneState, setDroneState] = useState<DroneState>(defaultState);
-    // connection status
-    const [connected, setConnected] = useState(false);
+    const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+    const wsRef = useRef<WebSocket | null>(null);
+    const attemptRef = useRef(0);
+    const disposedRef = useRef(false);
 
-    useEffect(() => {
-        // open WebSocket connection to FastAPI
+    const connect = useCallback(() => {
+        if (disposedRef.current) return;
+
         const ws = new WebSocket(url);
+        wsRef.current = ws;
 
         ws.onopen = () => {
-            console.log('Telemetry connected');
-            setConnected(true);
+            attemptRef.current = 0;
+            setStatus('connected');
         };
 
         ws.onmessage = (event) => {
-            // parse incoming JSON and update drone state
             const data: DroneState = JSON.parse(event.data);
             setDroneState(data);
         };
 
         ws.onclose = () => {
-            console.log('Telemetry disconnected');
-            setConnected(false);
+            if (disposedRef.current) return;
+            setStatus('reconnecting');
+            const delay = Math.min(1000 * Math.pow(2, attemptRef.current), 10000);
+            attemptRef.current++;
+            setTimeout(connect, delay);
         };
 
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
+        ws.onerror = () => {
+            ws.close();
         };
-
-        // cleanup - close WebSocket when component unmounts
-        return () => ws.close();
     }, [url]);
 
-    return { droneState, connected };
+    useEffect(() => {
+        disposedRef.current = false;
+        connect();
+
+        return () => {
+            disposedRef.current = true;
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+            setStatus('disconnected');
+        };
+    }, [connect]);
+
+    return { droneState, status, connected: status === 'connected' };
 }

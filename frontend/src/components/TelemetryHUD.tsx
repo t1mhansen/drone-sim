@@ -1,11 +1,20 @@
 import type { DroneState } from '../types/drone';
+import type { ConnectionStatus } from '../hooks/useTelemetry';
 
 interface Props {
     state: DroneState;
-    connected: boolean;
+    status: ConnectionStatus;
 }
 
-export default function TelemetryHUD({ state, connected }: Props) {
+const statusConfig = {
+    connected: { color: '#00ff88', label: 'CONNECTED' },
+    reconnecting: { color: '#ffaa00', label: 'RECONNECTING...' },
+    disconnected: { color: '#ef4444', label: 'DISCONNECTED' },
+};
+
+export default function TelemetryHUD({ state, status }: Props) {
+    const { color, label } = statusConfig[status];
+
     return (
         <div style={{
             background: 'rgba(0,0,0,0.75)',
@@ -17,8 +26,8 @@ export default function TelemetryHUD({ state, connected }: Props) {
             width: '220px'
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: connected ? '#00ff88' : '#ef4444' }} />
-                <span>{connected ? 'CONNECTED' : 'DISCONNECTED'}</span>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
+                <span style={{ color }}>{label}</span>
             </div>
 
             <div style={{ marginBottom: '8px' }}>

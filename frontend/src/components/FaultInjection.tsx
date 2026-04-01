@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '../config';
 
 export default function FaultInjection() {
     const [status, setStatus] = useState<string>('');
 
     const killRotor = async (index: number) => {
         try {
-            await fetch(`http://localhost:8000/fault/kill_rotor/${index}`, {
+            await fetch(`${API_BASE_URL}/fault/kill_rotor/${index}`, {
                 method: 'POST'
             });
             setStatus(`Rotor ${index} killed`);
@@ -16,7 +17,7 @@ export default function FaultInjection() {
 
     const reset = async () => {
         try {
-            await fetch('http://localhost:8000/fault/reset', {
+            await fetch(`${API_BASE_URL}/fault/reset`, {
                 method: 'POST'
             });
             setStatus('Rotors reset to hover');

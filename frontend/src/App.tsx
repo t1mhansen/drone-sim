@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useTelemetry } from './hooks/useTelemetry';
+import { WS_TELEMETRY_URL } from './config';
 import TelemetryHUD from './components/TelemetryHUD';
 import Scene3D from './components/Scene3D';
 import MissionPlanner from './components/MissionPlanner';
 import FaultInjection from './components/FaultInjection';
 
 export default function App() {
-    const { droneState, connected } = useTelemetry('ws://localhost:8000/ws/telemetry');
+    const { droneState, status } = useTelemetry(WS_TELEMETRY_URL);
     const [plannedPath, setPlannedPath] = useState<[number, number, number][]>([]);
+    const [obstacles, setObstacles] = useState<[number, number, number][]>([]);
 
     return (
         <div style={{ width: '100vw', height: '100vh', background: '#111', position: 'relative' }}>
@@ -19,16 +21,16 @@ export default function App() {
             </div>
 
             {/* 3D scene */}
-            <Scene3D state={droneState} plannedPath={plannedPath} />
+            <Scene3D state={droneState} plannedPath={plannedPath} obstacles={obstacles} />
 
             {/* telemetry HUD */}
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 999 }}>
-                <TelemetryHUD state={droneState} connected={connected} />
+                <TelemetryHUD state={droneState} status={status} />
             </div>
 
             {/* mission planner */}
             <div style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 999 }}>
-                <MissionPlanner onMissionPlanned={setPlannedPath} />
+                <MissionPlanner onMissionPlanned={setPlannedPath} onObstaclesChanged={setObstacles} />
             </div>
 
             {/* fault injection */}
