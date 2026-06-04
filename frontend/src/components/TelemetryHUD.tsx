@@ -21,6 +21,9 @@ export default function TelemetryHUD({ state, status, cameraMode }: Props) {
     const heading = ((Math.atan2(state.vy, state.vx) * 180 / Math.PI) + 360) % 360;
     const verticalSpeed = state.vz;
 
+    const health = Math.max(0, Math.min(100, state.health));
+    const healthColor = health > 60 ? '#00ff88' : health > 30 ? '#ffaa00' : '#ff4444';
+
     return (
         <div style={{
             background: 'rgba(0,0,0,0.75)',
@@ -37,6 +40,16 @@ export default function TelemetryHUD({ state, status, cameraMode }: Props) {
                 <span style={{ color: '#666', fontSize: '11px', marginLeft: 'auto' }}>
                     CAM: {cameraMode.toUpperCase()}
                 </span>
+            </div>
+
+            <div style={{ marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '11px', marginBottom: '4px' }}>
+                    <span>INTEGRITY</span>
+                    <span style={{ color: healthColor }}>{health.toFixed(0)}%</span>
+                </div>
+                <div style={{ height: '8px', background: '#1a1a1a', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${health}%`, height: '100%', background: healthColor, transition: 'width 0.15s linear' }} />
+                </div>
             </div>
 
             <div style={{ marginBottom: '8px' }}>

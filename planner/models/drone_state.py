@@ -18,3 +18,5 @@ class DroneState:
     ax: float = 0.0
     ay: float = 0.0
     az: float = 0.0
+
+    health: float = 100.0

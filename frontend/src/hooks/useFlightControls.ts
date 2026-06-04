@@ -23,9 +23,11 @@ const defaultKeys: KeyState = {
 };
 
 // Smoothing: ramp toward target at this rate per tick (30Hz ticks)
-const RAMP_UP = 0.15;    // how fast axis reaches target (per 33ms tick)
-const RAMP_DOWN = 0.20;  // how fast axis returns to zero
-const THROTTLE_RATE = 0.015; // throttle change per tick
+const RAMP_UP = 0.18;    // how fast axis reaches target (per 33ms tick)
+const RAMP_DOWN = 0.22;  // how fast axis returns to zero
+const THROTTLE_RATE = 0.04;   // throttle change while holding Space/Shift (~1.2/s)
+const THROTTLE_CENTER = 0.012; // ease back toward hover when neither is held
+const HOVER_THROTTLE = 0.5;
 
 function approach(current: number, target: number, rate: number): number {
     if (current < target) return Math.min(current + rate, target);
@@ -74,9 +76,14 @@ export function useFlightControls({ sendInput, isFixedWing }: FlightControlsOpti
         const interval = setInterval(() => {
             const keys = keysRef.current;
 
-            // Throttle: cumulative
-            if (keys.space) throttleRef.current = Math.min(1.0, throttleRef.current + THROTTLE_RATE);
-            if (keys.shift) throttleRef.current = Math.max(0.0, throttleRef.current - THROTTLE_RATE);
+            // Throttle: hold Space/Shift to climb/descend; ease back to hover on release.
+            if (keys.space) {
+                throttleRef.current = Math.min(1.0, throttleRef.current + THROTTLE_RATE);
+            } else if (keys.shift) {
+                throttleRef.current = Math.max(0.0, throttleRef.current - THROTTLE_RATE);
+            } else {
+                throttleRef.current = approach(throttleRef.current, HOVER_THROTTLE, THROTTLE_CENTER);
+            }
 
             // Compute target axes from keys
             let targetPitch = 0;

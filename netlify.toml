@@ -1,0 +1,13 @@
+# Static, server-less deploy: the C++ engine runs in-browser via WebAssembly.
+# The prebuilt frontend/src/wasm/engine.mjs is committed, so the host only needs
+# to run Vite — no Emscripten toolchain required in CI.
+[build]
+  base = "frontend"
+  command = "npm run build:wasm"
+  publish = "dist"
+
+# SPA fallback so deep links resolve to index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

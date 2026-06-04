@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../config';
+import { getSimClient } from '../sim';
 import type { DroneProfile, DronesResponse } from '../types/drone';
 
 interface Props {
@@ -13,8 +13,7 @@ export default function DroneSelector({ onDroneChanged }: Props) {
     const [expanded, setExpanded] = useState(false);
 
     useEffect(() => {
-        fetch(`${API_BASE_URL}/drones`)
-            .then(r => r.json())
+        getSimClient().listDrones()
             .then((data: DronesResponse) => {
                 setDrones(data.drones);
                 setSelected(data.current);
@@ -29,7 +28,7 @@ export default function DroneSelector({ onDroneChanged }: Props) {
         if (id === selected || loading) return;
         setLoading(true);
         try {
-            await fetch(`${API_BASE_URL}/drone/select/${id}`, { method: 'POST' });
+            await getSimClient().selectDrone(id);
             setSelected(id);
             onDroneChanged(id, drones[id]);
         } catch (e) {

@@ -109,6 +109,47 @@ export function useAudioEngine() {
         source.start();
     }, []);
 
+    // Play a heavy explosion: low boom + longer noise tail.
+    const playExplosionSound = useCallback(() => {
+        const ctx = ctxRef.current;
+        if (!ctx || ctx.state === 'suspended') return;
+
+        const now = ctx.currentTime;
+
+        // Sub-bass thump that pitches down.
+        const boom = ctx.createOscillator();
+        boom.type = 'sine';
+        boom.frequency.setValueAtTime(120, now);
+        boom.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+        const boomGain = ctx.createGain();
+        boomGain.gain.setValueAtTime(0.6, now);
+        boomGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        boom.connect(boomGain);
+        boomGain.connect(ctx.destination);
+        boom.start(now);
+        boom.stop(now + 0.6);
+
+        // Debris noise tail (~0.6s, exponential decay).
+        const duration = 0.6;
+        const bufferSize = Math.floor(ctx.sampleRate * duration);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.18));
+        }
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.value = 0.5;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 900;
+        source.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        source.start(now);
+    }, []);
+
     // Cleanup
     useEffect(() => {
         return () => {
@@ -117,5 +158,5 @@ export function useAudioEngine() {
         };
     }, []);
 
-    return { updateEngineSound, playCollisionSound };
+    return { updateEngineSound, playCollisionSound, playExplosionSound };
 }

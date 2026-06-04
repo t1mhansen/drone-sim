@@ -25,6 +25,7 @@ def _select_default_drone():
         max_thrust_per_rotor=profile["max_thrust_per_rotor"],
         drag_coeff=profile["drag_coeff"],
         lift_coeff=profile["lift_coeff"],
+        is_kamikaze=profile.get("is_kamikaze", 0),
     )
     print(f"Auto-selected default drone: {profile['name']}")
 
@@ -77,6 +78,7 @@ async def list_drones():
                     "max_thrust_per_rotor": p["max_thrust_per_rotor"],
                     "drag_coeff": p["drag_coeff"],
                     "lift_coeff": p["lift_coeff"],
+                    "is_kamikaze": p.get("is_kamikaze", 0),
                 },
             }
             for key, p in PROFILES.items()
@@ -100,6 +102,7 @@ async def select_drone(drone_id: str):
         max_thrust_per_rotor=profile["max_thrust_per_rotor"],
         drag_coeff=profile["drag_coeff"],
         lift_coeff=profile["lift_coeff"],
+        is_kamikaze=profile.get("is_kamikaze", 0),
     )
     current_drone = drone_id
     return {"status": "drone selected", "drone": profile["name"]}
@@ -127,10 +130,15 @@ async def telemetry(websocket: WebSocket):
     await websocket.accept()
 
     async def send_loop():
-        """Push drone state to frontend at 30Hz."""
+        """Push drone state + destruction events to frontend at 30Hz."""
         while True:
+            # Deliver any destruction events first so visuals fire promptly.
+            for event in engine_client.drain_events():
+                await websocket.send_json(event)
+
             state = engine_client.read_state()
             await websocket.send_json({
+                "type": "state",
                 "x": state.x,
                 "y": state.y,
                 "z": state.z,
@@ -144,6 +152,7 @@ async def telemetry(websocket: WebSocket):
                 "ax": state.ax,
                 "ay": state.ay,
                 "az": state.az,
+                "health": state.health,
             })
             await asyncio.sleep(1 / 30)
 

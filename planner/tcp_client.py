@@ -2,6 +2,7 @@ import socket
 import struct
 import threading
 import time
+from collections import deque
 from models.drone_state import DroneState
 
 # Wire protocol constants (must match C++ TcpServer)
@@ -9,15 +10,24 @@ MSG_TYPE_STATE = 0x01
 MSG_TYPE_COMMAND = 0x02
 MSG_TYPE_CONFIG = 0x03
 MSG_TYPE_FLIGHT_INPUT = 0x04
+MSG_TYPE_EVENT = 0x05
 HEADER_SIZE = 5  # 4-byte LE length + 1-byte type
-STATE_PAYLOAD = 104  # 13 doubles
+STATE_PAYLOAD = 112  # 14 doubles
 COMMAND_PAYLOAD = 16  # int32 + int32 + float64
-CONFIG_PAYLOAD = 40  # int32 + int32 + 4 doubles
+CONFIG_PAYLOAD = 44  # 3 int32 + 4 doubles
 FLIGHT_INPUT_PAYLOAD = 32  # 4 doubles
+EVENT_PAYLOAD = 32  # 2 int32 + 3 doubles
 
 # Command types (must match C++ CommandType enum)
 COMMAND_SET_THROTTLE = 1
 COMMAND_RESET = 2
+
+# World event types (must match C++ WorldEventType enum)
+EVENT_NAMES = {
+    1: "building_destroyed",
+    2: "drone_destroyed",
+    3: "world_reset",
+}
 
 
 class EngineClient:
@@ -30,6 +40,7 @@ class EngineClient:
         self._lock = threading.Lock()
         self._send_lock = threading.Lock()
         self._latest_state = DroneState()
+        self._events: deque = deque(maxlen=256)  # destruction events awaiting delivery
         self._running = False
         self._thread: threading.Thread | None = None
         self._connected = False
@@ -86,9 +97,18 @@ class EngineClient:
                     break  # Incomplete frame
 
                 if msg_type == MSG_TYPE_STATE and payload_len == STATE_PAYLOAD:
-                    values = struct.unpack_from("<13d", buf, HEADER_SIZE)
+                    values = struct.unpack_from("<14d", buf, HEADER_SIZE)
                     with self._lock:
                         self._latest_state = DroneState(*values)
+                elif msg_type == MSG_TYPE_EVENT and payload_len == EVENT_PAYLOAD:
+                    ev_type, index, x, y, z = struct.unpack_from("<ii3d", buf, HEADER_SIZE)
+                    with self._lock:
+                        self._events.append({
+                            "type": "event",
+                            "event": EVENT_NAMES.get(ev_type, "unknown"),
+                            "index": index,
+                            "x": x, "y": y, "z": z,
+                        })
 
                 buf = buf[frame_size:]
 
@@ -107,6 +127,13 @@ class EngineClient:
         """Return the most recent drone state (thread-safe)."""
         with self._lock:
             return self._latest_state
+
+    def drain_events(self) -> list:
+        """Pop and return all destruction events queued since the last call."""
+        with self._lock:
+            events = list(self._events)
+            self._events.clear()
+        return events
 
     def _send_command(self, cmd_type: int, rotor_index: int, throttle: float):
         """Send a framed command message to the engine."""
@@ -129,9 +156,10 @@ class EngineClient:
         self._send_command(COMMAND_RESET, 0, 0.0)
 
     def send_config(self, drone_type: int, num_rotors: int, mass: float,
-                    max_thrust_per_rotor: float, drag_coeff: float, lift_coeff: float):
+                    max_thrust_per_rotor: float, drag_coeff: float, lift_coeff: float,
+                    is_kamikaze: int = 0):
         """Send a drone configuration to the engine (triggers drone swap)."""
-        payload = struct.pack("<ii4d", drone_type, num_rotors,
+        payload = struct.pack("<iii4d", drone_type, num_rotors, is_kamikaze,
                               mass, max_thrust_per_rotor, drag_coeff, lift_coeff)
         header = struct.pack("<IB", len(payload), MSG_TYPE_CONFIG)
         with self._send_lock:

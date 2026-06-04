@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE_URL } from '../config';
+import { getSimClient } from '../sim';
 
 interface Props {
     onRotorKilled?: (index: number) => void;
@@ -11,9 +11,7 @@ export default function FaultInjection({ onRotorKilled, onReset }: Props) {
 
     const killRotor = async (index: number) => {
         try {
-            await fetch(`${API_BASE_URL}/fault/kill_rotor/${index}`, {
-                method: 'POST'
-            });
+            await getSimClient().killRotor(index);
             setStatus(`Rotor ${index} killed`);
             onRotorKilled?.(index);
         } catch (e) {
@@ -23,9 +21,7 @@ export default function FaultInjection({ onRotorKilled, onReset }: Props) {
 
     const reset = async () => {
         try {
-            await fetch(`${API_BASE_URL}/fault/reset`, {
-                method: 'POST'
-            });
+            await getSimClient().reset();
             setStatus('Rotors reset to hover');
             onReset?.();
         } catch (e) {

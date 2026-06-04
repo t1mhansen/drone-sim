@@ -10,6 +10,7 @@ PROFILES = {
         "max_thrust_per_rotor": 5.0,
         "drag_coeff": 0.1,
         "lift_coeff": 0.0,
+        "is_kamikaze": 0,
         "description": "Ultra-light racing quadcopter built for speed and agility. "
                        "Thrust-to-weight ratio over 5:1 enables extreme maneuvers.",
         "pros": [
@@ -37,6 +38,7 @@ PROFILES = {
         "max_thrust_per_rotor": 4.5,
         "drag_coeff": 0.05,
         "lift_coeff": 0.0,
+        "is_kamikaze": 0,
         "description": "Commercial reconnaissance drone with excellent camera stabilization. "
                        "GPS waypoint navigation and obstacle avoidance built in.",
         "pros": [
@@ -64,6 +66,7 @@ PROFILES = {
         "max_thrust_per_rotor": 9.81,
         "drag_coeff": 0.08,
         "lift_coeff": 0.0,
+        "is_kamikaze": 1,
         "description": "Modified FPV drone carrying a warhead, widely used in the Ukraine conflict. "
                        "Operator flies via first-person video into the target. One-way trip.",
         "pros": [
@@ -91,6 +94,7 @@ PROFILES = {
         "max_thrust_per_rotor": 25.0,
         "drag_coeff": 0.15,
         "lift_coeff": 0.0,
+        "is_kamikaze": 0,
         "description": "Professional hexacopter for heavy payloads. Used for cinema cameras, "
                        "LiDAR mapping, and industrial inspection. Extremely stable platform.",
         "pros": [
@@ -116,8 +120,9 @@ PROFILES = {
         "num_rotors": 1,
         "mass": 200.0,
         "max_thrust_per_rotor": 500.0,
-        "drag_coeff": 0.002,
+        "drag_coeff": 0.06,
         "lift_coeff": 0.04,
+        "is_kamikaze": 1,
         "description": "Iranian-designed delta-wing loitering munition used extensively in the "
                        "Ukraine conflict. Launched from a rack, flies autonomously via GPS to "
                        "target coordinates. Cannot hover — must maintain airspeed for lift.",

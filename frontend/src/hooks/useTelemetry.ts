@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { DroneState, FlightInput } from '../types/drone';
+import type { DroneState, FlightInput, WorldEvent, SceneEffect } from '../types/drone';
+import { getSimClient } from '../sim';
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
 
@@ -8,69 +9,67 @@ const defaultState: DroneState = {
     qx: 0, qy: 0, qz: 0, qw: 1,
     vx: 0, vy: 0, vz: 0,
     ax: 0, ay: 0, az: 0,
+    health: 100,
 };
 
-export function useTelemetry(url: string) {
+interface Options {
+    // Fired for every destruction event (audio cues, HUD reactions, etc.).
+    onEvent?: (event: WorldEvent) => void;
+}
+
+// Subscribes to the active SimClient (remote backend or in-browser WASM) and
+// exposes drone state, destroyed-building set, and a queue of explosion effects.
+export function useTelemetry({ onEvent }: Options = {}) {
     const [droneState, setDroneState] = useState<DroneState>(defaultState);
     const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-    const wsRef = useRef<WebSocket | null>(null);
-    const attemptRef = useRef(0);
-    const disposedRef = useRef(false);
+    const [destroyedBuildings, setDestroyedBuildings] = useState<Set<number>>(new Set());
 
-    const connect = useCallback(() => {
-        if (disposedRef.current) return;
+    const effectsRef = useRef<SceneEffect[]>([]);
+    const effectIdRef = useRef(0);
+    const onEventRef = useRef(onEvent);
+    onEventRef.current = onEvent;
 
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            attemptRef.current = 0;
-            setStatus('connected');
-        };
-
-        ws.onmessage = (event) => {
-            const data: DroneState = JSON.parse(event.data);
-            setDroneState(data);
-        };
-
-        ws.onclose = () => {
-            if (disposedRef.current) return;
-            setStatus('reconnecting');
-            const delay = Math.min(1000 * Math.pow(2, attemptRef.current), 10000);
-            attemptRef.current++;
-            setTimeout(connect, delay);
-        };
-
-        ws.onerror = () => {
-            ws.close();
-        };
-    }, [url]);
-
-    useEffect(() => {
-        disposedRef.current = false;
-        connect();
-
-        return () => {
-            disposedRef.current = true;
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
-            setStatus('disconnected');
-        };
-    }, [connect]);
-
-    const sendInput = useCallback((input: FlightInput) => {
-        const ws = wsRef.current;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'flight_input',
-                throttle: input.throttle,
-                pitch: input.pitch,
-                roll: input.roll,
-                yaw: input.yaw,
-            }));
-        }
+    const drainEffects = useCallback((): SceneEffect[] => {
+        if (effectsRef.current.length === 0) return [];
+        const drained = effectsRef.current;
+        effectsRef.current = [];
+        return drained;
     }, []);
 
-    return { droneState, status, connected: status === 'connected', sendInput };
+    useEffect(() => {
+        const client = getSimClient();
+        client.start({
+            onStatus: setStatus,
+            onState: setDroneState,
+            onEvent: (evt: WorldEvent) => {
+                if (evt.event === 'building_destroyed') {
+                    setDestroyedBuildings(prev => {
+                        const next = new Set(prev);
+                        next.add(evt.index);
+                        return next;
+                    });
+                    effectsRef.current.push({ id: effectIdRef.current++, kind: 'building', x: evt.x, y: evt.y, z: evt.z });
+                } else if (evt.event === 'drone_destroyed') {
+                    effectsRef.current.push({ id: effectIdRef.current++, kind: 'drone', x: evt.x, y: evt.y, z: evt.z });
+                } else if (evt.event === 'world_reset') {
+                    setDestroyedBuildings(new Set());
+                }
+                onEventRef.current?.(evt);
+            },
+        });
+        return () => client.stop();
+    }, []);
+
+    const sendInput = useCallback((input: FlightInput) => {
+        getSimClient().sendFlightInput(input);
+    }, []);
+
+    return {
+        droneState,
+        status,
+        connected: status === 'connected',
+        sendInput,
+        destroyedBuildings,
+        drainEffects,
+    };
 }

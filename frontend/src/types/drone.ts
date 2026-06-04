@@ -13,6 +13,28 @@ export interface DroneState {
     ax: number;
     ay: number;
     az: number;
+    health: number; // 0..100 structural integrity
+}
+
+// Destruction events streamed from the engine.
+export type WorldEventKind = 'building_destroyed' | 'drone_destroyed' | 'world_reset';
+
+export interface WorldEvent {
+    type: 'event';
+    event: WorldEventKind;
+    index: number;   // building index for building_destroyed, else -1
+    x: number;
+    y: number;
+    z: number;
+}
+
+// A transient visual effect queued for the 3D scene to spawn (drone-space coords).
+export interface SceneEffect {
+    id: number;
+    kind: 'building' | 'drone';
+    x: number;
+    y: number;
+    z: number;
 }
 
 export interface DroneProfile {
@@ -33,6 +55,7 @@ export interface DroneProfile {
         max_thrust_per_rotor: number;
         drag_coeff: number;
         lift_coeff: number;
+        is_kamikaze?: number;
     };
 }
 

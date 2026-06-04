@@ -120,17 +120,11 @@ void TcpServer::acceptClients() {
     }
 }
 
-void TcpServer::broadcastState(const DroneState& state) {
-    uint8_t frame[HEADER_SIZE + STATE_PAYLOAD];
-    uint32_t payloadLen = STATE_PAYLOAD;
-    std::memcpy(frame, &payloadLen, 4);
-    frame[4] = MSG_TYPE_STATE;
-    std::memcpy(frame + HEADER_SIZE, &state, sizeof(DroneState));
-
+void TcpServer::broadcastFrame(const uint8_t* frame, size_t len) {
     std::lock_guard<std::mutex> lock(clientMutex);
     auto it = clients.begin();
     while (it != clients.end()) {
-        if (!sendAll(it->sock, frame, sizeof(frame))) {
+        if (!sendAll(it->sock, frame, len)) {
             std::cout << "Client disconnected (send failed)" << std::endl;
             closeSocket(it->sock);
             it = clients.erase(it);
@@ -138,6 +132,29 @@ void TcpServer::broadcastState(const DroneState& state) {
             ++it;
         }
     }
+}
+
+void TcpServer::broadcastState(const DroneState& state) {
+    uint8_t frame[HEADER_SIZE + STATE_PAYLOAD];
+    uint32_t payloadLen = STATE_PAYLOAD;
+    std::memcpy(frame, &payloadLen, 4);
+    frame[4] = MSG_TYPE_STATE;
+    std::memcpy(frame + HEADER_SIZE, &state, sizeof(DroneState));
+    broadcastFrame(frame, sizeof(frame));
+}
+
+void TcpServer::broadcastEvent(const WorldEvent& event) {
+    uint8_t frame[HEADER_SIZE + EVENT_PAYLOAD];
+    uint32_t payloadLen = EVENT_PAYLOAD;
+    std::memcpy(frame, &payloadLen, 4);
+    frame[4] = MSG_TYPE_EVENT;
+    int32_t type = static_cast<int32_t>(event.type);
+    std::memcpy(frame + HEADER_SIZE,      &type,        4);
+    std::memcpy(frame + HEADER_SIZE + 4,  &event.index, 4);
+    std::memcpy(frame + HEADER_SIZE + 8,  &event.x,     8);
+    std::memcpy(frame + HEADER_SIZE + 16, &event.y,     8);
+    std::memcpy(frame + HEADER_SIZE + 24, &event.z,     8);
+    broadcastFrame(frame, sizeof(frame));
 }
 
 ParsedMessage TcpServer::readMessages() {
@@ -196,16 +213,18 @@ ParsedMessage TcpServer::readMessages() {
                 result.command.rotor_index = rotorIndex;
                 result.command.throttle = throttle;
             } else if (msgType == MSG_TYPE_CONFIG && payloadLen == CONFIG_PAYLOAD) {
-                int32_t droneType, numRotors;
+                int32_t droneType, numRotors, isKamikaze;
                 double mass, maxThrustPerRotor, dragCoeff, liftCoeff;
                 std::memcpy(&droneType, payload, 4);
                 std::memcpy(&numRotors, payload + 4, 4);
-                std::memcpy(&mass, payload + 8, 8);
-                std::memcpy(&maxThrustPerRotor, payload + 16, 8);
-                std::memcpy(&dragCoeff, payload + 24, 8);
-                std::memcpy(&liftCoeff, payload + 32, 8);
+                std::memcpy(&isKamikaze, payload + 8, 4);
+                std::memcpy(&mass, payload + 12, 8);
+                std::memcpy(&maxThrustPerRotor, payload + 20, 8);
+                std::memcpy(&dragCoeff, payload + 28, 8);
+                std::memcpy(&liftCoeff, payload + 36, 8);
                 result.config.type = static_cast<DroneType>(droneType);
                 result.config.numRotors = numRotors;
+                result.config.isKamikaze = isKamikaze;
                 result.config.mass = mass;
                 result.config.maxThrustPerRotor = maxThrustPerRotor;
                 result.config.dragCoeff = dragCoeff;
