@@ -176,7 +176,9 @@ Open `http://localhost:8000`. The planner builds the frontend into its image and
 
 ## Hosting
 
-The WebAssembly build runs the whole thing in the browser, so you can host it as a plain static site with no backend to keep alive. That's what the demo link uses.
+Two ways to deploy, depending on what you want. `docker-compose up --build` runs the real stack — C++ engine, Python server, React frontend — and serves it on `:8000`. The other way skips the backend entirely: build the WebAssembly version and drop it on any static host. That's what the demo link uses, and it's what the rest of this section covers.
+
+The WebAssembly build runs the whole thing in the browser, so you can host it as a plain static site with no backend to keep alive.
 
 ```bash
 cd frontend
