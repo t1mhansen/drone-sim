@@ -1,5 +1,7 @@
 # drone-sim
 
+**[Live demo](https://t1mhansen.github.io/drone-sim/)** — runs entirely in the browser.
+
 A drone flight simulator built across three languages. You fly real-world drone profiles (FPV racers, a DJI Mavic, a Shahed-136) with the keyboard over a procedural city, and you can wreck the city while you're at it. Under the hood it's a C++ physics engine running at 1000Hz, a Python server bridging it to the browser over WebSocket, and a React/Three.js frontend drawing everything in 3D.
 
 The engine also compiles to WebAssembly, so it can run entirely in the browser with no backend. That's what the hosted build uses, and it's covered in [Hosting](#hosting).
