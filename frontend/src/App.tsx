@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTelemetry } from './hooks/useTelemetry';
 import { useFlightControls } from './hooks/useFlightControls';
 import { useAudioEngine } from './hooks/useAudioEngine';
@@ -19,10 +19,13 @@ export default function App() {
     const [killedRotors, setKilledRotors] = useState<Set<number>>(new Set());
     const { updateEngineSound, playCollisionSound, playExplosionSound } = useAudioEngine();
 
-    // React to destruction events from the engine.
+    // React to destruction events from the engine. A destroyed drone respawns
+    // with fresh rotors, and a world reset clears everything, so both drop the
+    // rotor-kill visuals.
     const handleEvent = useCallback((event: WorldEvent) => {
         if (event.event === 'drone_destroyed') {
             playExplosionSound();
+            setKilledRotors(new Set());
         } else if (event.event === 'building_destroyed') {
             playExplosionSound();
         } else if (event.event === 'world_reset') {
@@ -43,15 +46,6 @@ export default function App() {
         }, 1000 / 15);
         return () => clearInterval(interval);
     }, [throttleRef, updateEngineSound]);
-
-    // Clear rotor-kill visuals when the drone respawns (health 0 -> full).
-    const prevHealthRef = useRef(droneState.health);
-    useEffect(() => {
-        if (prevHealthRef.current <= 0 && droneState.health > 0) {
-            setKilledRotors(new Set());
-        }
-        prevHealthRef.current = droneState.health;
-    }, [droneState.health]);
 
     const handleDroneChanged = useCallback((_id: string, profile: DroneProfile) => {
         setDroneProfile(profile);
@@ -92,7 +86,7 @@ export default function App() {
             {/* title */}
             <div style={{ position: 'absolute', top: '16px', left: '16px', color: 'white', fontFamily: 'monospace', zIndex: 999 }}>
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>DRONE-SIM</div>
-                <div style={{ color: '#888', fontSize: '14px' }}>Military Flight Simulator</div>
+                <div style={{ color: '#888', fontSize: '14px' }}>Real-Time Flight Simulator</div>
             </div>
 
             {/* 3D scene */}
@@ -153,7 +147,7 @@ export default function App() {
 
             {/* fault injection */}
             <div style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 999 }}>
-                <FaultInjection onRotorKilled={handleRotorKilled} onReset={handleReset} />
+                <FaultInjection droneProfile={droneProfile} onRotorKilled={handleRotorKilled} onReset={handleReset} />
             </div>
 
         </div>

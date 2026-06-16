@@ -6,21 +6,32 @@ interface Props {
     destroyedBuildings: Set<number>;
 }
 
+interface DebrisChunk {
+    x: number;
+    z: number;
+    s: number;
+    ry: number;
+    tilt: number;
+}
+
+// Deterministic debris scatter, seeded by building index so each collapsed
+// building always looks the same. Pure, so it lives outside the component.
+function rubbleChunks(index: number, w: number, d: number): DebrisChunk[] {
+    let s = ((index + 1) * 2654435761) % 2147483647;
+    const rand = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    const n = 5 + Math.floor(rand() * 4);
+    return Array.from({ length: n }, () => ({
+        x: (rand() - 0.5) * w * 0.8,
+        z: (rand() - 0.5) * d * 0.8,
+        s: 1.5 + rand() * 4,
+        ry: rand() * Math.PI,
+        tilt: (rand() - 0.5) * 0.5,
+    }));
+}
+
 // Collapsed building: a scorched footprint with a few angular debris chunks.
 function Rubble({ b, index }: { b: Building; index: number }) {
-    const chunks = useMemo(() => {
-        // Deterministic scatter seeded by building index so it's stable per building.
-        let s = (index + 1) * 2654435761 % 2147483647;
-        const rand = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
-        const n = 5 + Math.floor(rand() * 4);
-        return Array.from({ length: n }, () => ({
-            x: (rand() - 0.5) * b.w * 0.8,
-            z: (rand() - 0.5) * b.d * 0.8,
-            s: 1.5 + rand() * 4,
-            ry: rand() * Math.PI,
-            tilt: (rand() - 0.5) * 0.5,
-        }));
-    }, [b.w, b.d, index]);
+    const chunks = useMemo(() => rubbleChunks(index, b.w, b.d), [index, b.w, b.d]);
 
     return (
         <group position={[b.x, 0, b.z]}>

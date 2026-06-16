@@ -27,7 +27,7 @@ export function useTelemetry({ onEvent }: Options = {}) {
     const effectsRef = useRef<SceneEffect[]>([]);
     const effectIdRef = useRef(0);
     const onEventRef = useRef(onEvent);
-    onEventRef.current = onEvent;
+    useEffect(() => { onEventRef.current = onEvent; }, [onEvent]);
 
     const drainEffects = useCallback((): SceneEffect[] => {
         if (effectsRef.current.length === 0) return [];

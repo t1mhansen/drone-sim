@@ -10,7 +10,7 @@ The engine also compiles to WebAssembly, so it can run entirely in the browser w
 
 ## What it does
 
-- Five drone profiles: FPV Racing, DJI Mavic 3, Ukraine FPV Kamikaze, DJI Matrice 600, and the Shahed-136. Each one has its own mass, thrust, drag, and lift, so they fly differently.
+- Five drone profiles: FPV Racing, DJI Mavic 3, FPV Kamikaze, DJI Matrice 600, and the Shahed-136. Each one has its own mass, thrust, drag, and lift, so they fly differently.
 - Two flight models: rotorcraft (quad/hex/octo) with differential-thrust mixing, and fixed-wing with airspeed-dependent lift, elevator, and rudder.
 - Keyboard flight, captured at 30Hz. Hold Space/Shift to climb or descend; let go and throttle eases back to a hover. Pitch, roll, and yaw are momentary. Rotorcraft and fixed-wing use slightly different keys.
 - Three cameras: chase, FPV, and orbit. Press C to cycle.

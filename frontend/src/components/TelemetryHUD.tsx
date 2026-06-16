@@ -1,5 +1,6 @@
 import type { DroneState } from '../types/drone';
 import type { ConnectionStatus } from '../hooks/useTelemetry';
+import { colors, panel, sectionLabel } from '../ui/theme';
 
 interface Props {
     state: DroneState;
@@ -7,11 +8,15 @@ interface Props {
     cameraMode: string;
 }
 
-const statusConfig = {
-    connected: { color: '#00ff88', label: 'CONNECTED' },
-    reconnecting: { color: '#ffaa00', label: 'RECONNECTING...' },
-    disconnected: { color: '#ef4444', label: 'DISCONNECTED' },
+const statusConfig: Record<ConnectionStatus, { color: string; label: string }> = {
+    connected: { color: colors.green, label: 'CONNECTED' },
+    reconnecting: { color: colors.amber, label: 'RECONNECTING...' },
+    disconnected: { color: colors.red, label: 'DISCONNECTED' },
 };
+
+function healthColor(health: number): string {
+    return health > 60 ? colors.green : health > 30 ? colors.amber : colors.red;
+}
 
 export default function TelemetryHUD({ state, status, cameraMode }: Props) {
     const { color, label } = statusConfig[status];
@@ -20,64 +25,54 @@ export default function TelemetryHUD({ state, status, cameraMode }: Props) {
     const speedKmh = speedMs * 3.6;
     const heading = ((Math.atan2(state.vy, state.vx) * 180 / Math.PI) + 360) % 360;
     const verticalSpeed = state.vz;
-
     const health = Math.max(0, Math.min(100, state.health));
-    const healthColor = health > 60 ? '#00ff88' : health > 30 ? '#ffaa00' : '#ff4444';
 
     return (
-        <div style={{
-            background: 'rgba(0,0,0,0.75)',
-            color: '#00ff88',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            padding: '16px',
-            borderRadius: '8px',
-            width: '220px'
-        }}>
+        <div style={panel(colors.green, { fontSize: '14px', width: '220px' })}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} />
                 <span style={{ color }}>{label}</span>
-                <span style={{ color: '#666', fontSize: '11px', marginLeft: 'auto' }}>
+                <span style={{ color: colors.dim, fontSize: '11px', marginLeft: 'auto' }}>
                     CAM: {cameraMode.toUpperCase()}
                 </span>
             </div>
 
             <div style={{ marginBottom: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#888', fontSize: '11px', marginBottom: '4px' }}>
+                <div style={{ ...sectionLabel, display: 'flex', justifyContent: 'space-between' }}>
                     <span>INTEGRITY</span>
-                    <span style={{ color: healthColor }}>{health.toFixed(0)}%</span>
+                    <span style={{ color: healthColor(health) }}>{health.toFixed(0)}%</span>
                 </div>
                 <div style={{ height: '8px', background: '#1a1a1a', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${health}%`, height: '100%', background: healthColor, transition: 'width 0.15s linear' }} />
+                    <div style={{ width: `${health}%`, height: '100%', background: healthColor(health), transition: 'width 0.15s linear' }} />
                 </div>
             </div>
 
             <div style={{ marginBottom: '8px' }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>SPEED</div>
+                <div style={sectionLabel}>SPEED</div>
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{speedMs.toFixed(1)} m/s</div>
-                <div style={{ color: '#888' }}>{speedKmh.toFixed(0)} km/h</div>
+                <div style={{ color: colors.label }}>{speedKmh.toFixed(0)} km/h</div>
             </div>
 
             <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
                 <div>
-                    <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>HEADING</div>
+                    <div style={sectionLabel}>HEADING</div>
                     <div>{heading.toFixed(0)}&deg;</div>
                 </div>
                 <div>
-                    <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>V/S</div>
-                    <div style={{ color: verticalSpeed > 0.5 ? '#00ff88' : verticalSpeed < -0.5 ? '#ff4444' : '#888' }}>
+                    <div style={sectionLabel}>V/S</div>
+                    <div style={{ color: verticalSpeed > 0.5 ? colors.green : verticalSpeed < -0.5 ? colors.red : colors.label }}>
                         {verticalSpeed > 0 ? '+' : ''}{verticalSpeed.toFixed(1)} m/s
                     </div>
                 </div>
             </div>
 
             <div style={{ marginBottom: '8px' }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>POSITION (m)</div>
+                <div style={sectionLabel}>POSITION (m)</div>
                 <div>X: {state.x.toFixed(1)} | Y: {state.y.toFixed(1)}</div>
             </div>
 
             <div style={{ borderTop: '1px solid #1a4a2a', paddingTop: '8px', marginTop: '8px' }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '4px' }}>ALTITUDE</div>
+                <div style={sectionLabel}>ALTITUDE</div>
                 <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{state.z.toFixed(1)}m</div>
             </div>
         </div>

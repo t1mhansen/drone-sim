@@ -20,8 +20,7 @@ export default function Scene3D({
 }: Props) {
     return (
         <Canvas
-            style={{ position: 'absolute', top: 0, left: 0 }}
-            className="w-full h-full"
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
             camera={{ position: [20, 120, 20], fov: 60, near: 0.5, far: 2000 }}
         >
             <fog attach="fog" args={['#2a3040', 200, 1200]} />

@@ -26,7 +26,9 @@ void Logger::log(const DroneState &state) {
         // angular velocity
         << "\"ax\":" << state.ax << ","
         << "\"ay\":" << state.ay << ","
-        << "\"az\":" << state.az
+        << "\"az\":" << state.az << ","
+        // structural integrity
+        << "\"health\":" << state.health
         << "}\n";
     }
 }

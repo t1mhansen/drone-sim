@@ -17,6 +17,15 @@ endif()
 
 # --- Tests (no external framework) ---
 enable_testing()
+
 add_executable(test_collision tests/test_collision.cpp
         src/WorldCollision.cpp)
 add_test(NAME collision COMMAND test_collision)
+
+add_executable(test_flight tests/test_flight.cpp
+        src/Simulation.cpp
+        src/PhysicsEngine.cpp
+        src/Rotor.cpp
+        src/RK4Integrator.cpp
+        src/WorldCollision.cpp)
+add_test(NAME flight COMMAND test_flight)

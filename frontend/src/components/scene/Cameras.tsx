@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, type ComponentRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -73,7 +73,7 @@ export function CameraController({ state, mode, profile }: {
 }
 
 export function OrbitCameraController({ state }: { state: DroneState }) {
-    const controlsRef = useRef<any>(null);
+    const controlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
 
     useFrame(() => {
         if (controlsRef.current) {

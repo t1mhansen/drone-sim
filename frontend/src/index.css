@@ -1,3 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Minimal reset — the app is a full-viewport canvas with absolutely-positioned
+   HUD overlays, so we just kill default margins and page scroll. */
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    overflow: hidden;
+    background: #111;
+}

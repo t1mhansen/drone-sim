@@ -1,20 +1,38 @@
 import { useState } from 'react';
 import { getSimClient } from '../sim';
+import { colors, MONO, panel, sectionLabel } from '../ui/theme';
+import type { DroneProfile } from '../types/drone';
 
 interface Props {
+    droneProfile: DroneProfile | null;
     onRotorKilled?: (index: number) => void;
     onReset?: () => void;
 }
 
-export default function FaultInjection({ onRotorKilled, onReset }: Props) {
-    const [status, setStatus] = useState<string>('');
+const buttonBase: React.CSSProperties = {
+    padding: '6px',
+    background: '#3a0000',
+    color: colors.red,
+    border: `1px solid ${colors.red}`,
+    borderRadius: '4px',
+    fontFamily: MONO,
+    cursor: 'pointer',
+    fontSize: '12px',
+};
+
+export default function FaultInjection({ droneProfile, onRotorKilled, onReset }: Props) {
+    const [status, setStatus] = useState('');
+
+    const isFixedWing = droneProfile?.type === 'fixed_wing';
+    const numRotors = droneProfile?.physics.num_rotors ?? 4;
+    const noun = isFixedWing ? 'engine' : 'rotor';
 
     const killRotor = async (index: number) => {
         try {
             await getSimClient().killRotor(index);
-            setStatus(`Rotor ${index} killed`);
+            setStatus(`${noun[0].toUpperCase()}${noun.slice(1)} ${index} killed`);
             onRotorKilled?.(index);
-        } catch (e) {
+        } catch {
             setStatus('Error connecting to server');
         }
     };
@@ -22,49 +40,34 @@ export default function FaultInjection({ onRotorKilled, onReset }: Props) {
     const reset = async () => {
         try {
             await getSimClient().reset();
-            setStatus('Rotors reset to hover');
+            setStatus('Reset to hover');
             onReset?.();
-        } catch (e) {
+        } catch {
             setStatus('Error connecting to server');
         }
     };
 
     return (
-        <div style={{
-            background: 'rgba(0,0,0,0.75)',
-            color: '#ff4444',
-            fontFamily: 'monospace',
-            fontSize: '13px',
-            padding: '16px',
-            borderRadius: '8px',
-            width: '220px'
-        }}>
+        <div style={panel(colors.red, { width: '220px' })}>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '14px' }}>
                 FAULT INJECTION
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-                <div style={{ color: '#888', fontSize: '11px', marginBottom: '8px' }}>KILL ROTOR</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                    {[0, 1, 2, 3].map(i => (
-                        <button
-                            key={i}
-                            onClick={() => killRotor(i)}
-                            style={{
-                                padding: '6px',
-                                background: '#3a0000',
-                                color: '#ff4444',
-                                border: '1px solid #ff4444',
-                                borderRadius: '4px',
-                                fontFamily: 'monospace',
-                                cursor: 'pointer',
-                                fontSize: '12px'
-                            }}
-                        >
-                            ROTOR {i}
-                        </button>
-                    ))}
-                </div>
+                <div style={{ ...sectionLabel, marginBottom: '8px' }}>KILL {noun.toUpperCase()}</div>
+                {isFixedWing ? (
+                    <button onClick={() => killRotor(0)} style={{ ...buttonBase, width: '100%' }}>
+                        KILL ENGINE
+                    </button>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                        {Array.from({ length: numRotors }, (_, i) => (
+                            <button key={i} onClick={() => killRotor(i)} style={buttonBase}>
+                                ROTOR {i}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <button
@@ -73,16 +76,16 @@ export default function FaultInjection({ onRotorKilled, onReset }: Props) {
                     width: '100%',
                     padding: '8px',
                     background: '#003a00',
-                    color: '#00ff88',
-                    border: '1px solid #00ff88',
+                    color: colors.green,
+                    border: `1px solid ${colors.green}`,
                     borderRadius: '4px',
-                    fontFamily: 'monospace',
+                    fontFamily: MONO,
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    marginBottom: '8px'
+                    marginBottom: '8px',
                 }}
             >
-                RESET ALL ROTORS
+                RESET
             </button>
 
             {status && (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getSimClient } from '../sim';
+import { colors, panel } from '../ui/theme';
 import type { DroneProfile, DronesResponse } from '../types/drone';
 
 interface Props {
@@ -22,7 +23,7 @@ export default function DroneSelector({ onDroneChanged }: Props) {
                 }
             })
             .catch(() => {});
-    }, []);
+    }, [onDroneChanged]);
 
     const selectDrone = async (id: string) => {
         if (id === selected || loading) return;
@@ -40,17 +41,11 @@ export default function DroneSelector({ onDroneChanged }: Props) {
     const current = drones[selected];
 
     return (
-        <div style={{
-            background: 'rgba(0,0,0,0.75)',
-            color: '#44aaff',
-            fontFamily: 'monospace',
-            fontSize: '13px',
-            padding: '16px',
-            borderRadius: '8px',
+        <div style={panel(colors.blue, {
             width: '280px',
             maxHeight: expanded ? '500px' : 'auto',
             overflowY: expanded ? 'auto' : 'hidden',
-        }}>
+        })}>
             <div style={{ fontWeight: 'bold', marginBottom: '12px', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>DRONE SELECT</span>
                 <button

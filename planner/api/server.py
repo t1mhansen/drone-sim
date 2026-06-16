@@ -110,9 +110,10 @@ async def select_drone(drone_id: str):
 
 @app.post("/fault/kill_rotor/{rotor_index}")
 async def kill_rotor(rotor_index: int):
-    """Kill a specific rotor to simulate motor failure."""
-    if rotor_index < 0 or rotor_index > 3:
-        return {"error": "rotor_index must be 0-3"}
+    """Kill a specific rotor (or the engine, for fixed-wing) to simulate failure."""
+    num_rotors = PROFILES[current_drone]["num_rotors"]
+    if rotor_index < 0 or rotor_index >= num_rotors:
+        return {"error": f"rotor_index must be 0-{num_rotors - 1} for this drone"}
     engine_client.send_set_throttle(rotor_index, 0.0)
     return {"status": "rotor killed", "rotor": rotor_index}
 
